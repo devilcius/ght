@@ -1,0 +1,13 @@
+# Only configure these when deploying with a Cloudflare Access application.
+ACCESS_TEAM_DOMAIN=example.cloudflareaccess.com
+ACCESS_AUDIENCE=replace-with-access-audience
+ADMIN_EMAIL=admin@example.com
+
+# Optional: canonical HTTPS site origin (defaults to https://ghtarquitectura.com
+# on deployed hosts; leave unset for localhost URLs).
+# PUBLIC_SITE_URL=https://ghtarquitectura.com
+
+# Production email delivery: configure RESEND_API_KEY as a Wrangler secret.
+# Set a verified Resend sender and the owner's confirmed recipient address.
+# CONTACT_FROM_EMAIL=GHT Arquitectura <website@example.com>
+# CONTACT_TO_EMAIL=office@example.com

@@ -1,0 +1,25 @@
+# Local WordPress source, database exports, and private submission archives.
+/db/
+/ght/
+/private-archive/
+/ght-dns-config.png
+/TODO.md
+
+# Dependencies, local runtime state, and generated artifacts.
+node_modules/
+.wrangler/
+dist/
+coverage/
+__pycache__/
+*.py[cod]
+.DS_Store
+
+# Local configuration and credentials; keep documented examples.
+.env
+.env.*
+!.env.example
+.dev.vars
+.dev.vars.*
+!.dev.vars.example
+*.pem
+*.key
