@@ -1,4 +1,5 @@
 import {escapeHtml as e} from './domain.js';
+import {imagesFor,imageMarkup,variantKeys,variantDeletion,variantsExpression} from './image-variants.js';
 const json = (body,status=200) => Response.json(body,{status,headers:{'Cache-Control':'no-store'}});
 const integer = (value,label,max) => {
  if(value===null || value===undefined || value==='') return null;
@@ -19,11 +20,12 @@ export function validateProperty(input) {
  return {title,slug,operation:input.operation,availability:input.availability,location,description,area_m2,price_eur:integer(input.price_eur,'El precio',1000000000),bedrooms:integer(input.bedrooms,'El número de dormitorios',1000),bathrooms:integer(input.bathrooms,'El número de baños',1000),published:input.published===true||input.published===1?1:0};
 }
 export async function listProperties(env,all=false) {
- return (await env.DB.prepare(`SELECT p.*, COALESCE((SELECT COALESCE(thumbnail_key,object_key) FROM property_images i WHERE i.property_id=p.id AND i.id=p.cover_image_id),(SELECT COALESCE(thumbnail_key,object_key) FROM property_images i WHERE i.property_id=p.id ORDER BY position,id LIMIT 1)) AS cover FROM properties p ${all?'':'WHERE p.published=1'} ORDER BY p.created_at DESC,p.id ASC`).all()).results;
+ const rows=(await env.DB.prepare(`SELECT p.*, (SELECT json_object('object_key',i.object_key,'thumbnail_key',i.thumbnail_key,'variants',json(${variantsExpression('property_image_variants')})) FROM property_images i WHERE i.id=COALESCE((SELECT x.id FROM property_images x WHERE x.property_id=p.id AND x.id=p.cover_image_id),(SELECT x.id FROM property_images x WHERE x.property_id=p.id ORDER BY x.position,x.id LIMIT 1)) LIMIT 1) AS cover_json FROM properties p ${all?'':'WHERE p.published=1'} ORDER BY p.created_at DESC,p.id ASC`).all()).results;
+ return rows.map(({cover_json,...p})=>({...p,cover:cover_json?JSON.parse(cover_json):null}));
 }
 export const priceText = p => p.price_eur===null ? 'Consultar precio' : new Intl.NumberFormat('es-ES',{style:'currency',currency:'EUR',maximumFractionDigits:0}).format(p.price_eur)+(p.operation==='rent'?' / mes':'');
 export const statusText = p => p.availability==='reserved'?'Reservado':p.availability==='sold'?(p.operation==='rent'?'Alquilado':'Vendido'):(p.operation==='rent'?'Alquiler':'Venta');
-export const propertyCard = p => `<a class="project property-card" href="/inmobiliaria/${e(p.slug)}"><div class="project-image">${p.cover?`<img src="/media/${encodeURIComponent(p.cover)}" alt="" loading="lazy" decoding="async">`:'<span>GHT / INMOBILIARIA</span>'}</div><div class="project-meta"><span>${e(statusText(p))}</span><span>${e(priceText(p))}</span></div><h3>${e(p.title)}</h3><p>${e(p.location)}</p></a>`;
+export const propertyCard = p => `<a class="project property-card" href="/inmobiliaria/${e(p.slug)}"><div class="project-image">${p.cover?imageMarkup(p.cover,{alt:'',sizes:'(max-width: 700px) 86vw, 41vw'}):'<span>GHT / INMOBILIARIA</span>'}</div><div class="project-meta"><span>${e(statusText(p))}</span><span>${e(priceText(p))}</span></div><h3>${e(p.title)}</h3><p>${e(p.location)}</p></a>`;
 export async function propertyApi(request,env,path) {
  if(path==='/api/admin/properties' && request.method==='GET') return json(await listProperties(env,true));
  if(path==='/api/admin/properties' && request.method==='POST') {
@@ -35,7 +37,7 @@ export async function propertyApi(request,env,path) {
  const [,id,action,imageId,variant]=match;
  const property=await env.DB.prepare('SELECT * FROM properties WHERE id=?').bind(id).first();
  if(!property)return json({error:'Inmueble no encontrado'},404);
- if(!action && request.method==='GET')return json({...property,images:(await env.DB.prepare('SELECT * FROM property_images WHERE property_id=? ORDER BY position,id').bind(id).all()).results});
+ if(!action && request.method==='GET')return json({...property,images:await imagesFor(env,'properties',id)});
  if(!action && request.method==='PUT') {
   const p=validateProperty(await request.json());await env.DB.prepare('UPDATE properties SET title=?,slug=?,operation=?,availability=?,location=?,price_eur=?,area_m2=?,bedrooms=?,bathrooms=?,description=?,published=?,updated_at=? WHERE id=?').bind(p.title,p.slug,p.operation,p.availability,p.location,p.price_eur,p.area_m2,p.bedrooms,p.bathrooms,p.description,p.published,new Date().toISOString(),id).run();return json({ok:true});
  }
@@ -56,7 +58,7 @@ export async function propertyApi(request,env,path) {
   if(variant)return json({error:'Método no permitido'},405);
   if(request.method==='PATCH') {const {alt}=await request.json();if(typeof alt!=='string'||alt.length>300)return json({error:'Texto alternativo no válido'},400);await env.DB.prepare('UPDATE property_images SET alt=? WHERE id=? AND property_id=?').bind(alt.trim(),imageId,id).run();return json({ok:true});}
   if(request.method==='DELETE') {
-   const keys=[image.object_key,...(image.thumbnail_key?[image.thumbnail_key]:[])];await env.DB.batch([...keys.map(key=>env.DB.prepare('INSERT OR IGNORE INTO pending_media_deletions (object_key) VALUES (?)').bind(key)),env.DB.prepare('UPDATE properties SET cover_image_id=NULL WHERE id=? AND cover_image_id=?').bind(id,imageId),env.DB.prepare('DELETE FROM property_images WHERE id=? AND property_id=?').bind(imageId,id)]);
+   const keys=[image.object_key,...(image.thumbnail_key?[image.thumbnail_key]:[]),...await variantKeys(env,'properties',imageId)];await env.DB.batch([...keys.map(key=>env.DB.prepare('INSERT OR IGNORE INTO pending_media_deletions (object_key) VALUES (?)').bind(key)),variantDeletion(env,'properties',imageId),env.DB.prepare('UPDATE properties SET cover_image_id=NULL WHERE id=? AND cover_image_id=?').bind(id,imageId),env.DB.prepare('DELETE FROM property_images WHERE id=? AND property_id=?').bind(imageId,id)]);
    try{for(const key of keys){await env.MEDIA.delete(key);await env.DB.prepare('DELETE FROM pending_media_deletions WHERE object_key=?').bind(key).run();}return json({ok:true});}catch{return json({ok:true,cleanupPending:true});}
   }
  }

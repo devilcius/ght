@@ -1,5 +1,6 @@
 import {validateProject, validateProjectOrder, escapeHtml as e} from './domain.js';
 import {isAdmin} from './auth.js';
+import {imagesFor, imageMarkup, galleryImage, uploadVariant, variantKeys, variantDeletion, variantsExpression} from './image-variants.js';
 import {handleContact} from './contact.js';
 import {listProperties,propertyApi,propertyCard,priceText,statusText} from './property.js';
 import {contentKeys, validateSiteContent} from './site-content.js';
@@ -25,15 +26,15 @@ const layout = (title, body, seo = {}) => {
 };
 
 async function projects(env, all = false) {
-  const result = await env.DB.prepare(`SELECT p.*, COALESCE((SELECT COALESCE(thumbnail_key,object_key) FROM project_images i WHERE i.project_id=p.id AND i.id=p.cover_image_id), (SELECT COALESCE(thumbnail_key,object_key) FROM project_images i WHERE i.project_id=p.id ORDER BY position,id LIMIT 1)) AS cover FROM projects p ${all ? '' : 'WHERE p.published=1'} ORDER BY (p.display_order IS NULL),p.display_order ASC,p.created_at DESC,p.id ASC`).all();
-  return result.results;
+  const result = await env.DB.prepare(`SELECT p.*, (SELECT json_object('object_key',i.object_key,'thumbnail_key',i.thumbnail_key,'variants',json(${variantsExpression('project_image_variants')})) FROM project_images i WHERE i.id=COALESCE((SELECT x.id FROM project_images x WHERE x.project_id=p.id AND x.id=p.cover_image_id),(SELECT x.id FROM project_images x WHERE x.project_id=p.id ORDER BY x.position,x.id LIMIT 1)) LIMIT 1) AS cover_json FROM projects p ${all ? '' : 'WHERE p.published=1'} ORDER BY (p.display_order IS NULL),p.display_order ASC,p.created_at DESC,p.id ASC`).all();
+  return result.results.map(({cover_json,...p})=>({...p,cover:cover_json?JSON.parse(cover_json):null}));
 }
 async function siteContent(env) {
   const rows = await env.DB.prepare('SELECT key,value FROM site_content').all();
   return Object.fromEntries(rows.results.map(row => [row.key,row.value]));
 }
 const paragraphs = text => e(text).split(/\n\s*\n/).filter(Boolean).map(p=>`<p>${p.replaceAll('\n','<br>')}</p>`).join('');
-const card = p => `<a class="project" href="/proyectos/${e(p.slug)}"><div class="project-image">${p.cover ? `<img src="/media/${encodeURIComponent(p.cover)}" alt="" loading="lazy" decoding="async">` : '<span>GHT / PROYECTO</span>'}</div><div class="project-meta"><span>${e(p.category || 'Arquitectura')}</span><span>${e(p.year)}</span></div><h3>${e(p.title)}</h3><p>${e(p.location)}</p></a>`;
+const card = p => `<a class="project" href="/proyectos/${e(p.slug)}"><div class="project-image">${p.cover ? imageMarkup(p.cover,{alt:'',sizes:'(max-width: 700px) 86vw, 41vw'}) : '<span>GHT / PROYECTO</span>'}</div><div class="project-meta"><span>${e(p.category || 'Arquitectura')}</span><span>${e(p.year)}</span></div><h3>${e(p.title)}</h3><p>${e(p.location)}</p></a>`;
 async function api(request, env, path) {
   if (!await isAdmin(request, env)) return json({error:'No autorizado'}, 401);
   if (!['GET','HEAD'].includes(request.method) && request.headers.get('Origin') !== new URL(request.url).origin) return json({error:'Origen no permitido'}, 403);
@@ -45,6 +46,8 @@ async function api(request, env, path) {
       await env.DB.prepare('DELETE FROM pending_media_deletions WHERE object_key=?').bind(item.object_key).run();
     } catch (error) { console.error('Media cleanup pending', error); }
   }
+  const variantMatch = path.match(/^\/api\/admin\/(projects|properties)\/([\w-]+)\/images\/([\w-]+)\/variants\/(\d+)$/);
+  if (variantMatch) return request.method === 'PUT' ? await uploadVariant(request,env,variantMatch[1],variantMatch[2],variantMatch[3],variantMatch[4]) : json({error:'Método no permitido'},405);
   if (path === '/api/admin/properties' || path.startsWith('/api/admin/properties/')) return await propertyApi(request,env,path);
   if (path === '/api/admin/content' && request.method === 'GET') return json(await siteContent(env));
   if (path === '/api/admin/content' && request.method === 'PUT') {
@@ -88,7 +91,10 @@ async function api(request, env, path) {
       return json({ok:true});
     }
     if (request.method === 'DELETE') {
+      const variants = await variantKeys(env,'projects',imageId);
       await env.DB.batch([
+        ...variants.map(key=>env.DB.prepare('INSERT OR IGNORE INTO pending_media_deletions (object_key) VALUES (?)').bind(key)),
+        variantDeletion(env,'projects',imageId),
         env.DB.prepare('INSERT OR IGNORE INTO pending_media_deletions (object_key) VALUES (?)').bind(image.object_key),
         ...(image.thumbnail_key ? [env.DB.prepare('INSERT OR IGNORE INTO pending_media_deletions (object_key) VALUES (?)').bind(image.thumbnail_key)] : []),
         env.DB.prepare('UPDATE projects SET cover_image_id=NULL WHERE id=? AND cover_image_id=?').bind(projectId,imageId),
@@ -98,6 +104,7 @@ async function api(request, env, path) {
         await env.MEDIA.delete(image.object_key);
         await env.DB.prepare('DELETE FROM pending_media_deletions WHERE object_key=?').bind(image.object_key).run();
         if (image.thumbnail_key) { await env.MEDIA.delete(image.thumbnail_key); await env.DB.prepare('DELETE FROM pending_media_deletions WHERE object_key=?').bind(image.thumbnail_key).run(); }
+        for(const key of variants){await env.MEDIA.delete(key);await env.DB.prepare('DELETE FROM pending_media_deletions WHERE object_key=?').bind(key).run();}
         return json({ok:true});
       } catch (error) {
         console.error('Media cleanup pending', error);
@@ -112,8 +119,7 @@ async function api(request, env, path) {
   const project = await env.DB.prepare('SELECT * FROM projects WHERE id=?').bind(id).first();
   if (!project) return json({error:'Proyecto no encontrado'},404);
   if (!action && request.method === 'GET') {
-    const images = await env.DB.prepare('SELECT * FROM project_images WHERE project_id=? ORDER BY position,id').bind(id).all();
-    return json({...project,images:images.results});
+    return json({...project,images:await imagesFor(env,'projects',id)});
   }
   if (!action && request.method === 'PUT') {
     const input = await request.json(); const p = validateProject(input);
@@ -170,10 +176,13 @@ export default {async fetch(request, env) {
     }
     if (path.startsWith('/media/')) {
       const key = decodeURIComponent(path.slice(7));
-      const visible = await env.DB.prepare('SELECT p.published FROM project_images i JOIN projects p ON p.id=i.project_id WHERE i.object_key=? OR i.thumbnail_key=? UNION ALL SELECT p.published FROM property_images i JOIN properties p ON p.id=i.property_id WHERE i.object_key=? OR i.thumbnail_key=? LIMIT 1').bind(key,key,key,key).first();
+      const visible = await env.DB.prepare('SELECT p.published FROM project_images i JOIN projects p ON p.id=i.project_id WHERE i.object_key=? OR i.thumbnail_key=? UNION ALL SELECT p.published FROM property_images i JOIN properties p ON p.id=i.property_id WHERE i.object_key=? OR i.thumbnail_key=? UNION ALL SELECT p.published FROM project_image_variants v JOIN project_images i ON i.id=v.image_id JOIN projects p ON p.id=i.project_id WHERE v.object_key=? UNION ALL SELECT p.published FROM property_image_variants v JOIN property_images i ON i.id=v.image_id JOIN properties p ON p.id=i.property_id WHERE v.object_key=? LIMIT 1').bind(key,key,key,key,key,key).first();
       if (!visible || (!visible.published && !await isAdmin(request,env))) return new Response('Not found',{status:404});
       const object = await env.MEDIA.get(key); if (!object) return new Response('Not found',{status:404});
-      const headers = new Headers(); object.writeHttpMetadata(headers); headers.set('X-Content-Type-Options','nosniff'); headers.set('Cache-Control','no-store'); return new Response(object.body,{headers});
+      const headers = new Headers(); object.writeHttpMetadata(headers); headers.set('X-Content-Type-Options','nosniff'); headers.set('Cache-Control','private, no-cache'); headers.set('ETag',object.httpEtag);
+      const validators=(request.headers.get('If-None-Match')||'').split(',').map(value=>value.trim().replace(/^W\//,''));
+      if(validators.includes(object.httpEtag)||validators.includes('*')) return new Response(null,{status:304,headers});
+      return new Response(object.body,{headers});
     }
     if (path === '/') {
       const allProjects = await projects(env);
@@ -206,23 +215,23 @@ export default {async fetch(request, env) {
     if (propertyMatch) {
       const p=await env.DB.prepare('SELECT * FROM properties WHERE slug=? AND published=1').bind(propertyMatch[1]).first();
       if(!p)return html(layout('No encontrado','<main class="section"><h1>Inmueble no encontrado</h1><a href="/inmobiliaria">Volver a inmobiliaria</a></main>'),404);
-      const imgs=(await env.DB.prepare('SELECT * FROM property_images WHERE property_id=? ORDER BY position,id').bind(p.id).all()).results;
+      const imgs=await imagesFor(env,'properties',p.id);
       const featured=imgs.find(i=>i.id===p.cover_image_id)||imgs[0],image=featured?`${origin}/media/${encodeURIComponent(featured.object_key)}`:undefined;
       const facts=[p.area_m2!==null?`${p.area_m2} m²`:'',p.bedrooms!==null?`${p.bedrooms} dormitorios`:'',p.bathrooms!==null?`${p.bathrooms} baños`:''].filter(Boolean);
       const info=[p.location,statusText(p),priceText(p)].filter(Boolean).join(' · ');
-      const gallery=imgs.map(i=>`<picture>${i.thumbnail_key?`<source media="(max-width: 700px)" srcset="/media/${encodeURIComponent(i.thumbnail_key)}">`:''}<img src="/media/${encodeURIComponent(i.object_key)}" alt="${e(i.alt)}" loading="lazy" decoding="async"></picture>`).join('');
+      const gallery=imgs.map((i,index)=>galleryImage(i,index)).join('');
       return html(layout(p.title,`<main class="section detail"><a class="text-link" href="/inmobiliaria">← Todos los inmuebles</a><p class="eyebrow">${e(statusText(p))} / ${e(p.location)}</p><h1>${e(p.title)}</h1><p class="property-price">${e(priceText(p))}</p><p>${e(facts.join(' · '))}</p><div class="description">${paragraphs(p.description)}</div><a class="property-enquire" href="/contacto?inmueble=${encodeURIComponent(p.slug)}#form-heading">Solicitar información ↗</a><div class="gallery">${gallery}</div></main>`,{canonical:origin+'/inmobiliaria/'+encodeURIComponent(p.slug),description:pageDescription(p.description||`${p.title} — ${info}. Inmobiliaria GHT.`),image,index:indexable}));
     }
     const match = path.match(/^\/proyectos\/([a-z0-9-]+)\/?$/);
     if (match) {
       const p = await env.DB.prepare('SELECT * FROM projects WHERE slug=? AND published=1').bind(match[1]).first();
       if (!p) return html(layout('No encontrado','<main class="section"><h1>Proyecto no encontrado</h1><a href="/">Volver al inicio</a></main>'),404);
-      const imgs = (await env.DB.prepare('SELECT * FROM project_images WHERE project_id=? ORDER BY position,id').bind(p.id).all()).results;
+      const imgs = await imagesFor(env,'projects',p.id);
       const featured = imgs.find(i => i.id === p.cover_image_id) || imgs[0];
       const socialImage = featured ? `${origin}/media/${encodeURIComponent(featured.object_key)}` : undefined;
       const details = [p.category,p.location,p.year].filter(Boolean).join(' · ');
       const description = pageDescription(p.description || `${p.title}${details ? ' — '+details : ''}. Proyecto de GHT Arquitectura y Urbanismo.`);
-      return html(layout(p.title,`<main class="section detail"><a class="text-link" href="/#proyectos">← Todos los proyectos</a><p class="eyebrow">${e(p.category)} / ${e(p.year)}</p><h1>${e(p.title)}</h1><p>${e(p.location)}</p><p class="description">${e(p.description)}</p><div class="gallery">${imgs.map(i=>`<picture>${i.thumbnail_key ? `<source media="(max-width: 700px)" srcset="/media/${encodeURIComponent(i.thumbnail_key)}">` : ''}<img src="/media/${encodeURIComponent(i.object_key)}" alt="${e(i.alt)}" loading="lazy" decoding="async"></picture>`).join('')}</div></main>`,{canonical:origin+'/proyectos/'+encodeURIComponent(p.slug),description,image:socialImage,index:indexable}));
+      return html(layout(p.title,`<main class="section detail"><a class="text-link" href="/#proyectos">← Todos los proyectos</a><p class="eyebrow">${e(p.category)} / ${e(p.year)}</p><h1>${e(p.title)}</h1><p>${e(p.location)}</p><p class="description">${e(p.description)}</p><div class="gallery">${imgs.map((i,index)=>galleryImage(i,index)).join('')}</div></main>`,{canonical:origin+'/proyectos/'+encodeURIComponent(p.slug),description,image:socialImage,index:indexable}));
     }
     return env.ASSETS.fetch(request);
   } catch (err) { console.error('Request failed', err); return path.startsWith('/api/') ? json({error:err.message?.includes('UNIQUE') ? 'Ya existe un proyecto con ese slug.' : err.message || 'Error interno'},400) : html(layout('Error','<main class="section"><h1>No se pudo cargar la página.</h1></main>'),500); }

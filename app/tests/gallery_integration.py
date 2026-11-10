@@ -95,6 +95,11 @@ def main():
             assert call(admin, path+'/images/'+first+'/thumbnail', 'PUT', WEBP, 'image/webp')[0] == 200
             detail = json.loads(call(admin, path)[1]); thumb = next(x['thumbnail_key'] for x in detail['images'] if x['id'] == first)
             assert call(public, '/media/'+thumb)[0] == 404
+            assert call(admin, path+'/images/'+first+'/variants/1', 'PUT', WEBP, 'image/webp')[0] == 400
+            req = urllib.request.Request(admin+path+'/images/'+first+'/variants/1', data=WEBP, method='PUT', headers={'Origin':admin,'Content-Type':'image/webp','X-Image-Height':'1'})
+            with urllib.request.urlopen(req) as response: assert response.status == 200
+            detail = json.loads(call(admin, path)[1]); variant = next(x['variants'][0]['object_key'] for x in detail['images'] if x['id'] == first)
+            assert call(public, '/media/'+variant)[0] == 404
             assert send_json(admin, path+'/order', 'PUT', {'ids':[second,first]})[0] == 200
             assert send_json(admin, path+'/cover', 'PUT', {'imageId':first})[0] == 200
             project['published'] = True
@@ -114,9 +119,14 @@ def main():
             assert b'content="noindex,nofollow"' in call(admin, '/admin')[1]
             assert b'content="noindex,nofollow"' in call(admin, '/?categoria=Residencial')[1]
             gallery = page.split(b'<div class="gallery">', 1)[1]
-            assert gallery.index(objects[second].encode()) < gallery.index(objects[first].encode())
-            status, _, headers = call(public, '/media/'+objects[first]); assert status == 200 and headers['Cache-Control'] == 'no-store'
-            assert thumb.encode() in call(public, '/')[1]
+            assert gallery.index(objects[second].encode()) < gallery.index(variant.encode())
+            status, _, headers = call(public, '/media/'+objects[first]); assert status == 200 and headers['Cache-Control'] == 'private, no-cache'
+            assert variant.encode() in call(public, '/')[1]
+            status, _, headers = call(public, '/media/'+variant); assert status == 200
+            etag = headers['ETag']
+            req = urllib.request.Request(f'http://127.0.0.1:{admin_port}/media/{variant}',headers={'Host':f'public.test:{admin_port}','If-None-Match':etag})
+            try: urllib.request.urlopen(req); raise AssertionError('Expected 304')
+            except urllib.error.HTTPError as error: assert error.code == 304
             # A project cannot edit or delete another project's image.
             status, data, _ = send_json(admin, '/api/admin/projects', 'POST', {'title':'Other','slug':'other','category':'Dotacional','published':True}); other = json.loads(data)['id']
             filtered = call(public, '/?categoria=Residencial')[1]
@@ -141,6 +151,7 @@ def main():
             detail = json.loads(call(admin, path)[1]); assert detail['cover_image_id'] is None and len(detail['images']) == 1
             assert call(public, '/media/'+objects[first])[0] == 404
             assert call(public, '/media/'+thumb)[0] == 404
+            assert call(public, '/media/'+variant)[0] == 404
             assert objects[second].encode() in call(public, '/')[1]
             project['published'] = False
             assert send_json(admin, path, 'PUT', project)[0] == 200
@@ -162,12 +173,18 @@ def main():
             image_id = json.loads(data)['id']
             details = json.loads(call(admin, prop_path)[1]); key = details['images'][0]['object_key']
             assert call(public, '/media/'+key)[0] == 404
+            req = urllib.request.Request(admin+prop_path+'/images/'+image_id+'/variants/1', data=WEBP, method='PUT', headers={'Origin':admin,'Content-Type':'image/webp','X-Image-Height':'1'})
+            with urllib.request.urlopen(req) as response: assert response.status == 200
+            details = json.loads(call(admin, prop_path)[1]); property_variant = details['images'][0]['variants'][0]['object_key']
+            assert call(public, '/media/'+property_variant)[0] == 404
             assert send_json(admin, prop_path+'/cover', 'PUT', {'imageId':image_id})[0] == 200
             listing['published']=True
             assert send_json(admin, prop_path, 'PUT', listing)[0] == 200
             assert b'Piso de prueba' in call(public, '/inmobiliaria?operacion=sale')[1]
             assert b'Piso de prueba' not in call(public, '/inmobiliaria?operacion=rent')[1]
             assert call(public, '/media/'+key)[0] == 200
+            status, _, headers = call(public, '/media/'+property_variant); assert status == 200
+            property_etag = headers['ETag']
             assert b'/inmobiliaria/piso-prueba' in call(admin, '/sitemap.xml')[1]
             contact = call(admin, '/contacto?inmueble=piso-prueba')[1]
             assert b'Consulta sobre' in contact and b'piso-prueba' in contact
@@ -177,9 +194,13 @@ def main():
             assert send_json(admin, prop_path, 'PUT', listing)[0] == 200
             assert call(public, '/inmobiliaria/piso-prueba')[0] == 404
             assert call(public, '/media/'+key)[0] == 404
+            req = urllib.request.Request(f'http://127.0.0.1:{admin_port}/media/{property_variant}',headers={'Host':f'public.test:{admin_port}','If-None-Match':property_etag})
+            try: urllib.request.urlopen(req); raise AssertionError('Unpublished image must not return 304')
+            except urllib.error.HTTPError as error: assert error.code == 404
             assert send_json(admin, '/api/contact', 'POST', enquiry)[0] == 400
             assert b'/inmobiliaria/piso-prueba' not in call(admin, '/sitemap.xml')[1]
             assert call(admin, prop_path+'/images/'+image_id, 'DELETE')[0] == 200
+            assert call(admin, '/media/'+property_variant)[0] == 404
             print('Gallery and property integration passed: publication, images, enquiry, filtering and authorization.')
         finally:
             for process in processes:
