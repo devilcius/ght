@@ -198,6 +198,10 @@ def main():
             listing['published']=True
             assert send_json(admin, prop_path, 'PUT', listing)[0] == 200
             assert b'Piso de prueba' in call(public, '/inmobiliaria?operacion=sale')[1]
+            property_page = call(public, '/inmobiliaria/piso-prueba')[1]
+            assert b'Galer\xc3\xada del inmueble' in property_page
+            assert b'<dialog class="gallery-viewer"' in property_page and b'/gallery.js' in property_page
+            assert key.encode() in property_page and property_variant.encode() in property_page
             assert b'Piso de prueba' not in call(public, '/inmobiliaria?operacion=rent')[1]
             assert call(public, '/media/'+key)[0] == 200
             status, _, headers = call(public, '/media/'+property_variant); assert status == 200

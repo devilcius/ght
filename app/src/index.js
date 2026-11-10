@@ -1,6 +1,6 @@
 import {validateProject, validateProjectOrder, escapeHtml as e} from './domain.js';
 import {isAdmin} from './auth.js';
-import {imagesFor, imageMarkup, galleryImage, projectGalleryImage, uploadVariant, variantKeys, variantDeletion, variantsExpression} from './image-variants.js';
+import {imagesFor, imageMarkup, projectGalleryImage, uploadVariant, variantKeys, variantDeletion, variantsExpression} from './image-variants.js';
 import {handleContact} from './contact.js';
 import {listProperties,propertyApi,propertyCard,priceText,statusText} from './property.js';
 import {contentKeys, validateSiteContent} from './site-content.js';
@@ -34,6 +34,11 @@ async function siteContent(env) {
   return Object.fromEntries(rows.results.map(row => [row.key,row.value]));
 }
 const paragraphs = text => e(text).split(/\n\s*\n/).filter(Boolean).map(p=>`<p>${p.replaceAll('\n','<br>')}</p>`).join('');
+function mosaicGallery(imgs, label) {
+  if (!imgs.length) return '';
+  const mosaic=Array.from({length:Math.ceil(imgs.length/7)},(_,group)=>{const start=group*7,items=imgs.slice(start,start+7);return `<div class="project-gallery-group${items.length===7?' project-gallery-group-full':''}${items.length%2?' project-gallery-group-odd':''}">${items.map((img,index)=>projectGalleryImage(img,start+index)).join('')}</div>`;}).join('');
+  return `<div class="project-gallery" aria-label="${e(label)}">${mosaic}</div><dialog class="gallery-viewer" aria-label="Visor de imágenes"><div class="gallery-viewer-bar"><span class="gallery-viewer-count" aria-live="polite"></span><button type="button" class="gallery-viewer-close" aria-label="Cerrar visor">✕</button></div><div class="gallery-viewer-stage"><button type="button" class="gallery-viewer-prev" aria-label="Imagen anterior">←</button><img class="gallery-viewer-image" alt=""><button type="button" class="gallery-viewer-next" aria-label="Imagen siguiente">→</button></div><p class="gallery-viewer-caption"></p></dialog><script type="module" src="/gallery.js"></script>`;
+}
 const card = p => `<a class="project" href="/proyectos/${e(p.slug)}"><div class="project-image">${p.cover ? imageMarkup(p.cover,{alt:'',sizes:'(max-width: 700px) 86vw, 41vw'}) : '<span>GHT / PROYECTO</span>'}</div><div class="project-meta"><span>${e(p.category || 'Arquitectura')}</span><span>${e(p.year)}</span></div><h3>${e(p.title)}</h3><p>${e(p.location)}</p></a>`;
 async function api(request, env, path) {
   if (!await isAdmin(request, env)) return json({error:'No autorizado'}, 401);
@@ -221,8 +226,8 @@ export default {async fetch(request, env) {
       const featured=imgs.find(i=>i.id===p.cover_image_id)||imgs[0],image=featured?`${origin}/media/${encodeURIComponent(featured.object_key)}`:undefined;
       const facts=[p.area_m2!==null?`${p.area_m2} m²`:'',p.bedrooms!==null?`${p.bedrooms} dormitorios`:'',p.bathrooms!==null?`${p.bathrooms} baños`:''].filter(Boolean);
       const info=[p.location,statusText(p),priceText(p)].filter(Boolean).join(' · ');
-      const gallery=imgs.map((i,index)=>galleryImage(i,index)).join('');
-      return html(layout(p.title,`<main class="section detail"><a class="text-link" href="/inmobiliaria">← Todos los inmuebles</a><p class="eyebrow">${e(statusText(p))} / ${e(p.location)}</p><h1>${e(p.title)}</h1><p class="property-price">${e(priceText(p))}</p><p>${e(facts.join(' · '))}</p><div class="description">${paragraphs(p.description)}</div><a class="property-enquire" href="/contacto?inmueble=${encodeURIComponent(p.slug)}#form-heading">Solicitar información ↗</a><div class="gallery">${gallery}</div></main>`,{canonical:origin+'/inmobiliaria/'+encodeURIComponent(p.slug),description:pageDescription(p.description||`${p.title} — ${info}. Inmobiliaria GHT.`),image,index:indexable}));
+      const gallery=mosaicGallery(imgs,'Galería del inmueble');
+      return html(layout(p.title,`<main class="section detail"><a class="text-link" href="/inmobiliaria">← Todos los inmuebles</a><p class="eyebrow">${e(statusText(p))} / ${e(p.location)}</p><h1>${e(p.title)}</h1><p class="property-price">${e(priceText(p))}</p><p>${e(facts.join(' · '))}</p><div class="description">${paragraphs(p.description)}</div><a class="property-enquire" href="/contacto?inmueble=${encodeURIComponent(p.slug)}#form-heading">Solicitar información ↗</a>${gallery}</main>`,{canonical:origin+'/inmobiliaria/'+encodeURIComponent(p.slug),description:pageDescription(p.description||`${p.title} — ${info}. Inmobiliaria GHT.`),image,index:indexable}));
     }
     const match = path.match(/^\/proyectos\/([a-z0-9-]+)\/?$/);
     if (match) {
@@ -233,8 +238,7 @@ export default {async fetch(request, env) {
       const socialImage = featured ? `${origin}/media/${encodeURIComponent(featured.object_key)}` : undefined;
       const details = [p.category,p.location,p.year].filter(Boolean).join(' · ');
       const description = pageDescription(p.description || `${p.title}${details ? ' — '+details : ''}. Proyecto de GHT Arquitectura y Urbanismo.`);
-      const mosaic=Array.from({length:Math.ceil(imgs.length/7)},(_,group)=>{const start=group*7,items=imgs.slice(start,start+7);return `<div class="project-gallery-group${items.length===7?' project-gallery-group-full':''}${items.length%2?' project-gallery-group-odd':''}">${items.map((img,index)=>projectGalleryImage(img,start+index)).join('')}</div>`;}).join('');
-      const gallery=imgs.length ? `<div class="project-gallery" aria-label="Galería del proyecto">${mosaic}</div><dialog class="gallery-viewer" aria-label="Visor de imágenes"><div class="gallery-viewer-bar"><span class="gallery-viewer-count" aria-live="polite"></span><button type="button" class="gallery-viewer-close" aria-label="Cerrar visor">✕</button></div><div class="gallery-viewer-stage"><button type="button" class="gallery-viewer-prev" aria-label="Imagen anterior">←</button><img class="gallery-viewer-image" alt=""><button type="button" class="gallery-viewer-next" aria-label="Imagen siguiente">→</button></div><p class="gallery-viewer-caption"></p></dialog><script type="module" src="/gallery.js"></script>` : '';
+      const gallery=mosaicGallery(imgs,'Galería del proyecto');
       return html(layout(p.title,`<main class="section detail"><a class="text-link" href="/#proyectos">← Todos los proyectos</a><p class="eyebrow">${e(p.category)} / ${e(p.year)}</p><h1>${e(p.title)}</h1><p>${e(p.location)}</p><p class="description">${e(p.description)}</p>${gallery}</main>`,{canonical:origin+'/proyectos/'+encodeURIComponent(p.slug),description,image:socialImage,index:indexable}));
     }
     return env.ASSETS.fetch(request);
