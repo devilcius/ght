@@ -42,3 +42,7 @@ export function galleryImage(image,index) {
  const markup=imageMarkup(image,{eager:index===0,gallery:true});
  return image.variants?.length ? `<a href="/media/${encodeURIComponent(image.object_key)}" target="_blank" rel="noopener" aria-label="Ver imagen original">${markup}</a>` : markup;
 }
+export function projectGalleryImage(image,index) {
+ const markup=imageMarkup(image,{eager:index===0,gallery:true,sizes:'(max-width: 700px) 86vw, 41vw'});
+ return `<a class="project-gallery-item" href="/media/${encodeURIComponent(image.object_key)}" aria-label="Ampliar imagen ${index+1}${image.alt ? ': '+e(image.alt) : ''}">${markup}<span class="project-gallery-expand" aria-hidden="true">↗</span></a>`;
+}

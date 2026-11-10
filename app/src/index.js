@@ -1,6 +1,6 @@
 import {validateProject, validateProjectOrder, escapeHtml as e} from './domain.js';
 import {isAdmin} from './auth.js';
-import {imagesFor, imageMarkup, galleryImage, uploadVariant, variantKeys, variantDeletion, variantsExpression} from './image-variants.js';
+import {imagesFor, imageMarkup, galleryImage, projectGalleryImage, uploadVariant, variantKeys, variantDeletion, variantsExpression} from './image-variants.js';
 import {handleContact} from './contact.js';
 import {listProperties,propertyApi,propertyCard,priceText,statusText} from './property.js';
 import {contentKeys, validateSiteContent} from './site-content.js';
@@ -233,7 +233,9 @@ export default {async fetch(request, env) {
       const socialImage = featured ? `${origin}/media/${encodeURIComponent(featured.object_key)}` : undefined;
       const details = [p.category,p.location,p.year].filter(Boolean).join(' · ');
       const description = pageDescription(p.description || `${p.title}${details ? ' — '+details : ''}. Proyecto de GHT Arquitectura y Urbanismo.`);
-      return html(layout(p.title,`<main class="section detail"><a class="text-link" href="/#proyectos">← Todos los proyectos</a><p class="eyebrow">${e(p.category)} / ${e(p.year)}</p><h1>${e(p.title)}</h1><p>${e(p.location)}</p><p class="description">${e(p.description)}</p><div class="gallery">${imgs.map((i,index)=>galleryImage(i,index)).join('')}</div></main>`,{canonical:origin+'/proyectos/'+encodeURIComponent(p.slug),description,image:socialImage,index:indexable}));
+      const mosaic=Array.from({length:Math.ceil(imgs.length/7)},(_,group)=>{const start=group*7,items=imgs.slice(start,start+7);return `<div class="project-gallery-group${items.length===7?' project-gallery-group-full':''}${items.length%2?' project-gallery-group-odd':''}">${items.map((img,index)=>projectGalleryImage(img,start+index)).join('')}</div>`;}).join('');
+      const gallery=imgs.length ? `<div class="project-gallery" aria-label="Galería del proyecto">${mosaic}</div><dialog class="gallery-viewer" aria-label="Visor de imágenes"><div class="gallery-viewer-bar"><span class="gallery-viewer-count" aria-live="polite"></span><button type="button" class="gallery-viewer-close" aria-label="Cerrar visor">✕</button></div><div class="gallery-viewer-stage"><button type="button" class="gallery-viewer-prev" aria-label="Imagen anterior">←</button><img class="gallery-viewer-image" alt=""><button type="button" class="gallery-viewer-next" aria-label="Imagen siguiente">→</button></div><p class="gallery-viewer-caption"></p></dialog><script type="module" src="/gallery.js"></script>` : '';
+      return html(layout(p.title,`<main class="section detail"><a class="text-link" href="/#proyectos">← Todos los proyectos</a><p class="eyebrow">${e(p.category)} / ${e(p.year)}</p><h1>${e(p.title)}</h1><p>${e(p.location)}</p><p class="description">${e(p.description)}</p>${gallery}</main>`,{canonical:origin+'/proyectos/'+encodeURIComponent(p.slug),description,image:socialImage,index:indexable}));
     }
     return env.ASSETS.fetch(request);
   } catch (err) { console.error('Request failed', err); return path.startsWith('/api/') ? json({error:err.message?.includes('UNIQUE') ? 'Ya existe un proyecto con ese slug.' : err.message || 'Error interno'},400) : html(layout('Error','<main class="section"><h1>No se pudo cargar la página.</h1></main>'),500); }

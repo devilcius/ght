@@ -118,8 +118,9 @@ def main():
             assert f'{admin}/proyectos/gallery-test' in paths and f'{admin}/admin' not in paths
             assert b'content="noindex,nofollow"' in call(admin, '/admin')[1]
             assert b'content="noindex,nofollow"' in call(admin, '/?categoria=Residencial')[1]
-            gallery = page.split(b'<div class="gallery">', 1)[1]
+            gallery = page.split(b'<div class="project-gallery"', 1)[1]
             assert gallery.index(objects[second].encode()) < gallery.index(variant.encode())
+            assert b'<dialog class="gallery-viewer"' in page and b'/gallery.js' in page
             status, _, headers = call(public, '/media/'+objects[first]); assert status == 200 and headers['Cache-Control'] == 'private, no-cache'
             assert variant.encode() in call(public, '/')[1]
             status, _, headers = call(public, '/media/'+variant); assert status == 200
