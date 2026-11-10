@@ -146,6 +146,22 @@ def main():
             assert send_json(admin, other_path, 'PUT', {**other_data, 'display_order': '-1'})[0] == 400
             assert send_json(admin, other_path, 'PUT', {**other_data, 'display_order': ''})[0] == 200
             assert json.loads(call(admin, other_path)[1])['display_order'] is None
+            # A category can use a different order from the overall portfolio.
+            project['category_display_order'] = 2
+            assert send_json(admin, path, 'PUT', project)[0] == 200
+            third = {'title':'Third','slug':'third','category':'Residencial','published':True,'display_order':3,'category_display_order':1}
+            status, third_data, _ = send_json(admin, '/api/admin/projects', 'POST', third)
+            assert status == 201, third_data
+            third_id = json.loads(third_data)['id']
+            assert call(public, '/')[1].index(b'/proyectos/gallery-test') < call(public, '/')[1].index(b'/proyectos/third')
+            filtered = call(public, '/?categoria=Residencial')[1]
+            assert filtered.index(b'/proyectos/third') < filtered.index(b'/proyectos/gallery-test')
+            # A category change by an older client clears a stale category position.
+            del third['category_display_order']
+            third['category'] = 'Dotacional'
+            assert send_json(admin, '/api/admin/projects/'+third_id, 'PUT', third)[0] == 200
+            assert json.loads(call(admin, '/api/admin/projects/'+third_id)[1])['category_display_order'] is None
+            assert send_json(admin, path, 'PUT', {**project, 'category_display_order': '-1'})[0] == 400
             assert call(admin, f'/api/admin/projects/{other}/images/{first}', 'DELETE')[0] == 404
             assert call(admin, path+'/images/'+first, 'DELETE')[0] == 200
             detail = json.loads(call(admin, path)[1]); assert detail['cover_image_id'] is None and len(detail['images']) == 1

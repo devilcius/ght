@@ -59,9 +59,10 @@ async function api(request, env, path) {
   if (path === '/api/admin/projects' && request.method === 'POST') {
     const input = await request.json(); const p = validateProject(input);
     const displayOrder = Object.hasOwn(input,'display_order') ? validateProjectOrder(input.display_order) : null;
+    const categoryDisplayOrder = Object.hasOwn(input,'category_display_order') ? validateProjectOrder(input.category_display_order) : null;
     const localImport = env.LOCAL_DEVELOPMENT === 'true' && ['localhost','127.0.0.1','[::1]'].includes(new URL(request.url).hostname);
     const id = localImport && /^wp-[0-9]+$/.test(input.importId || '') ? input.importId : crypto.randomUUID(), now = new Date().toISOString();
-    await env.DB.prepare('INSERT INTO projects (id,title,slug,category,location,year,description,published,created_at,updated_at,display_order) VALUES (?,?,?,?,?,?,?,?,?,?,?)').bind(id,p.title,p.slug,p.category,p.location,p.year,p.description,p.published,now,now,displayOrder).run();
+    await env.DB.prepare('INSERT INTO projects (id,title,slug,category,location,year,description,published,created_at,updated_at,display_order,category_display_order) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)').bind(id,p.title,p.slug,p.category,p.location,p.year,p.description,p.published,now,now,displayOrder,categoryDisplayOrder).run();
     return json({id},201);
   }
   const imageMatch = path.match(/^\/api\/admin\/projects\/([\w-]+)\/images\/([\w-]+)(?:\/(thumbnail))?$/);
@@ -124,7 +125,8 @@ async function api(request, env, path) {
   if (!action && request.method === 'PUT') {
     const input = await request.json(); const p = validateProject(input);
     const displayOrder = Object.hasOwn(input,'display_order') ? validateProjectOrder(input.display_order) : project.display_order;
-    await env.DB.prepare('UPDATE projects SET title=?,slug=?,category=?,location=?,year=?,description=?,published=?,updated_at=?,display_order=? WHERE id=?').bind(p.title,p.slug,p.category,p.location,p.year,p.description,p.published,new Date().toISOString(),displayOrder,id).run();
+    const categoryDisplayOrder = Object.hasOwn(input,'category_display_order') ? validateProjectOrder(input.category_display_order) : (p.category === project.category ? project.category_display_order : null);
+    await env.DB.prepare('UPDATE projects SET title=?,slug=?,category=?,location=?,year=?,description=?,published=?,updated_at=?,display_order=?,category_display_order=? WHERE id=?').bind(p.title,p.slug,p.category,p.location,p.year,p.description,p.published,new Date().toISOString(),displayOrder,categoryDisplayOrder,id).run();
     return json({ok:true});
   }
   if (action === 'images' && request.method === 'POST') {
@@ -188,7 +190,7 @@ export default {async fetch(request, env) {
       const allProjects = await projects(env);
       const categories = [...new Set(allProjects.map(p => p.category.trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'es'));
       const selectedCategory = url.searchParams.get('categoria') || '';
-      const list = selectedCategory ? allProjects.filter(p=>p.category.trim() === selectedCategory) : allProjects;
+      const list = selectedCategory ? allProjects.filter(p=>p.category.trim() === selectedCategory).sort((a,b)=>(a.category_display_order ?? Number.MAX_SAFE_INTEGER)-(b.category_display_order ?? Number.MAX_SAFE_INTEGER)) : allProjects;
       const filters = `<nav class="category-filters" aria-label="Filtrar proyectos por categoría"><a href="/#proyectos" ${selectedCategory ? '' : 'aria-current="page"'}>Todos</a>${categories.map(category=>`<a href="/?categoria=${encodeURIComponent(category)}#proyectos" ${selectedCategory===category ? 'aria-current="page"' : ''}>${e(category)}</a>`).join('')}</nav>`;
       const content = await siteContent(env);
       return html(layout('Arquitectura y urbanismo', `<main><section class="hero"><div><p class="eyebrow">ARQUITECTURA Y URBANISMO · MADRID</p><h1>Espacios para<br><em>vivir mejor.</em></h1><p class="hero-copy">Arquitectura pensada desde las personas, el lugar y el paso del tiempo.</p><a class="text-link" href="#proyectos">Explorar proyectos <span>↗</span></a></div><div class="hero-art"><span>GHT</span><small>EST. 1976<br>MADRID</small></div><div class="hero-index">01 / 03 <span>ESTUDIO DE ARQUITECTURA</span></div></section><section class="section" id="proyectos"><div class="section-heading"><div><p class="eyebrow">UNA SELECCIÓN DE NUESTRO TRABAJO</p><h2>Proyectos<span class="dot">.</span></h2></div><p>Ideas que toman forma.<br>Espacios que cuentan historias.</p></div>${filters}<p class="project-count">${list.length} ${list.length === 1 ? 'proyecto' : 'proyectos'}</p><div class="project-grid">${list.map(card).join('') || '<p>No hay proyectos en esta categoría.</p>'}</div></section><section class="about section" id="estudio"><p class="eyebrow">02 / EL ESTUDIO</p><div><h2>Arquitectura con<br><em>perspectiva.</em></h2><p>Desde 1976, en GHT trabajamos en arquitectura y urbanismo desde Madrid. Una trayectoria construida a través de proyectos, personas y lugares.</p><a href="/estudio" class="text-link">Conoce el estudio ↗</a></div></section><section class="contact section" id="contacto"><p class="eyebrow">03 / HABLEMOS</p><h2>¿Tienes un proyecto<br><em>en mente?</em></h2><a class="contact-link" href="/contacto">Hablemos ↗</a><div class="contact-details"><span>${e(content.contact_address)}</span><a href="tel:${e(content.contact_phone.replace(/[^+\d]/g,''))}">${e(content.contact_phone)}</a><a href="mailto:${encodeURIComponent(content.contact_email)}">${e(content.contact_email)}</a></div></section></main>`,{canonical:origin+'/',description:siteDescription,index:indexable && !selectedCategory}));
