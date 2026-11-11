@@ -22,6 +22,8 @@ The contact page includes a form. Local submissions are simulated: no email is s
 
 Run `npm test` and `npm run check` for existing checks. Initial data contains no private contact submissions.
 
+The Worker entry point in `src/index.js` routes requests. Public-page data and request handling live in `src/pages/`, with page markup in `src/page-views.js` and shared markup in `src/components.js` and `src/layout.js`. `src/content-repository.js` holds shared public-content queries; `src/admin-api.js`, `src/media.js`, and the feature modules handle administration and media. Browser-side scripts remain in `public/`. Run `python3 tests/gallery_integration.py` from `app/` to exercise an isolated local Worker and database.
+
 The project editor lets you update image descriptions, reorder images, select a cover, and remove images. Removing a cover falls back to the first remaining image. If object-storage deletion fails, the image is removed from the project and the deletion is retried on later admin requests. Unpublished projects and their images are only available to authorized administrators.
 
 The **Inmobiliaria** tab in the admin manages separate property listings. An editor can create a draft or publish an apartment with a sale/rental option, availability, location, euro price, size, bedroom and bathroom counts, description, and an ordered photo gallery. Leaving the price empty displays “Consultar precio”; rental prices are monthly. A property page links to the contact form with the listing reference, which is included in delivered enquiries. No sample properties are inserted. The same local email simulation and live-delivery prerequisites apply to property enquiries.
