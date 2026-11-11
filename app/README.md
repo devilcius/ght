@@ -35,9 +35,19 @@ The admin's **Estudio y contacto** tab edits the studio introduction, four team 
 
 The contact page includes a form. Local submissions are simulated: no email is sent and no message is stored. Live delivery uses the Resend email API, following the pattern used in Crisalida, and remains unavailable until `CONTACT_FROM_EMAIL` (a verified sender), `CONTACT_TO_EMAIL` (the owner's confirmed recipient), and the `RESEND_API_KEY` secret are configured. These delivery addresses are separate from the public address in the content editor. A successful API response indicates that the provider accepted the email, not that it reached the inbox; submissions are not retained in the application. Review the privacy wording and implement suitable rate limiting or other spam protection before enabling live delivery.
 
-Run `npm test` and `npm run check` for existing checks. Initial data contains no private contact submissions.
+To run the complete test suite, install Python 3 and Pillow and the Playwright Chromium browser once, then run:
 
-The Worker entry point in `src/index.js` routes requests. Public-page data and request handling live in `src/pages/`, with page markup in `src/page-views.js` and shared markup in `src/components.js` and `src/layout.js`. `src/content-repository.js` holds shared public-content queries; `src/admin-api.js`, `src/media.js`, and the feature modules handle administration and media. Browser-side scripts remain in `public/`. Run `python3 tests/gallery_integration.py` from `app/` to exercise an isolated local Worker and database.
+```sh
+python3 -m venv .venv
+. .venv/bin/activate
+python -m pip install -r requirements-test.txt
+npx playwright install chromium
+npm test
+```
+
+`npm test` runs JavaScript syntax checks, JavaScript unit tests, Python tests, and isolated Worker integration scenarios including the browser smoke test. The integration tests create temporary D1/R2 state; they do not use or change the app's local or production data. On Linux, Playwright may require system browser dependencies; `npx playwright install-deps chromium` describes or installs those dependencies. Run `npm run test:unit`, `npm run test:python`, or `npm run test:integration` to focus on one part. Initial data contains no private contact submissions.
+
+The Worker entry point in `src/index.js` routes requests. Public-page data and request handling live in `src/pages/`, with page markup in `src/page-views.js` and shared markup in `src/components.js` and `src/layout.js`. `src/content-repository.js` holds shared public-content queries; `src/admin-api.js`, `src/media.js`, and the feature modules handle administration and media. Browser-side scripts remain in `public/`.
 
 The admin entry point, `public/admin.js`, connects the tabs to the feature modules in `public/admin/`; image optimization is shared by the project and property editors. `src/admin-api.js` checks authorization and dispatches requests, while project operations and their database queries live in `src/project-api.js` and `src/project-repository.js`.
 

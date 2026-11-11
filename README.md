@@ -18,11 +18,10 @@ npm run dev
 
 Open the URL printed by Wrangler. The public site includes the portfolio and real estate section; `/admin` opens the local editor. A clean installation has no projects or properties. Local contact-form submissions are simulated and do not send email.
 
-Run the application checks with:
+After installing Python test dependencies and Playwright's Chromium browser as described in the [application README](app/README.md), run the complete test suite with:
 
 ```sh
 npm test
-npm run check
 ```
 
 The [application README](app/README.md) covers local data, WordPress migration, image processing, the contact form, deployment prerequisites, and additional integration tests.
