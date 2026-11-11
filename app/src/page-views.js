@@ -3,6 +3,7 @@ import {propertyCard, priceText, statusText} from './property.js';
 import {paragraphs, card} from './components.js';
 import {layout, pageDescription, siteDescription} from './layout.js';
 import {html} from './http.js';
+import {renderMarkdown, markdownText} from './markdown.js';
 
 export function renderHome({filters, list, content, origin, indexable, selectedCategory}) {
   return html(layout('Arquitectura y urbanismo', `<main>
@@ -105,7 +106,7 @@ export function renderProperty({p, facts, gallery, origin, info, image, indexabl
       <h1>${e(p.title)}</h1>
       <p class="property-price">${e(priceText(p))}</p>
       <p>${e(facts.join(' · '))}</p>
-      <div class="description">${paragraphs(p.description)}</div><a class="property-enquire" href="/contacto?inmueble=${encodeURIComponent(p.slug)}#form-heading">Solicitar información ↗</a>${gallery}</main>`,{canonical:origin+'/inmobiliaria/'+encodeURIComponent(p.slug),description:pageDescription(p.description||`${p.title} — ${info}. Inmobiliaria GHT.`),image,index:indexable}));
+      <div class="description description--markdown">${renderMarkdown(p.description)}</div><a class="property-enquire" href="/contacto?inmueble=${encodeURIComponent(p.slug)}#form-heading">Solicitar información ↗</a>${gallery}</main>`,{canonical:origin+'/inmobiliaria/'+encodeURIComponent(p.slug),description:pageDescription(markdownText(p.description)||`${p.title} — ${info}. Inmobiliaria GHT.`),image,index:indexable}));
 }
 
 export function renderProject({p, gallery, origin, description, socialImage, indexable}) {

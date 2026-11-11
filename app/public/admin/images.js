@@ -31,8 +31,29 @@ async function retryVariants(kind, ownerId, image) {
   if (!response.ok) throw new Error("No se pudo cargar la imagen original.");
   await generateVariants(await response.blob(), kind, ownerId, image.id, image.variants || []);
 }
+async function uploadPhotos(kind, ownerId, files, onProgress = () => {}) {
+  const result = {uploaded: 0, failed: [], optimizationFailed: []};
+  for (const [index, file] of files.entries()) {
+    onProgress(index + 1, files.length);
+    const form = new FormData();
+    form.append('file', file);
+    try {
+      const image = await api(`/api/admin/${kind}/${ownerId}/images`, {method: 'POST', body: form});
+      result.uploaded++;
+      try {
+        await generateVariants(file, kind, ownerId, image.id);
+      } catch {
+        result.optimizationFailed.push(file.name);
+      }
+    } catch (error) {
+      result.failed.push(`${file.name}: ${error.message}`);
+    }
+  }
+  return result;
+}
 export {
   adminImageSource,
   generateVariants,
-  retryVariants
+  retryVariants,
+  uploadPhotos
 };

@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {validateProperty,priceText,statusText} from '../src/property.js';
+import {validateProperty,priceText,statusText,propertySlug} from '../src/property.js';
 import {handleContact} from '../src/contact.js';
 const property={title:'Piso en Madrid',slug:'piso-madrid',operation:'rent',availability:'available',location:'Madrid',price_eur:'1500',area_m2:'84.5',bedrooms:'2',bathrooms:'1',description:'Luminoso.',published:true};
 test('validates property data and preserves optional fields',()=>{
@@ -8,6 +8,11 @@ test('validates property data and preserves optional fields',()=>{
 });
 test('rejects invalid property data',()=>{
  for(const p of [{...property,title:''},{...property,slug:'bad/slug'},{...property,price_eur:'-1'},{...property,area_m2:'0'},{...property,bedrooms:'1.2'},{...property,availability:'unknown'}])assert.throws(()=>validateProperty(p));
+});
+test('generates readable property slugs and handles accents or symbol-only titles',()=>{
+ assert.equal(propertySlug('Ático en La Coruña'), 'atico-en-la-coruna');
+ assert.equal(propertySlug('!!!'), 'inmueble');
+ assert.ok(propertySlug('á'.repeat(180)).length <= 170);
 });
 test('property enquiry includes the verified listing in delivery',async()=>{
  const body={name:'Persona',email:'hello@example.com',message:'Quiero saber más sobre este inmueble.',consent:true,propertySlug:'piso-madrid'};

@@ -8,7 +8,42 @@ const page = await browser.newPage({viewport: {width: 1024, height: 768}});
 const errors = [];
 page.on('pageerror', error => errors.push(error.message));
 try {
-  await page.goto(`${base}/admin`);
+  await page.goto(`${base}/admin/inmobiliaria`);
+  await page.locator('#new-property').waitFor();
+  await page.reload();
+  await page.locator('#new-property').waitFor();
+  assert.equal(await page.locator('#tab-properties').getAttribute('aria-current'),'page');
+  await page.locator('#tab-content').click();
+  assert.equal(new URL(page.url()).pathname,'/admin/estudio');
+  await page.locator('#content-form').waitFor();
+  await page.goBack();
+  await page.locator('#new-property').waitFor();
+  assert.equal(new URL(page.url()).pathname,'/admin/inmobiliaria');
+  await page.goForward();
+  await page.locator('#content-form').waitFor();
+  let releaseProperties, propertiesStarted;
+  const waitingForProperties = new Promise(resolve => { propertiesStarted = resolve; });
+  const delayedProperties = new Promise(resolve => { releaseProperties = resolve; });
+  const propertyRoute = '**/api/admin/properties';
+  await page.route(propertyRoute, async route => {
+    propertiesStarted();
+    await delayedProperties;
+    await route.continue();
+  });
+  await page.locator('#tab-properties').click();
+  await waitingForProperties;
+  await page.locator('#tab-content').click();
+  await page.locator('#content-form').waitFor();
+  const propertyResponse = page.waitForResponse(response => response.url().endsWith('/api/admin/properties'));
+  releaseProperties();
+  await propertyResponse;
+  await page.waitForTimeout(50);
+  assert.equal(await page.locator('#content-form').count(),1);
+  assert.equal(new URL(page.url()).pathname,'/admin/estudio');
+  await page.unroute(propertyRoute);
+  await page.locator('#tab-projects').click();
+  assert.equal(new URL(page.url()).pathname,'/admin/proyectos');
+  await page.reload();
   await page.locator('#new').click();
   await page.locator('#project-form').waitFor();
   await page.locator('#tab-properties').click();
@@ -18,6 +53,106 @@ try {
   await page.locator('#content-form').waitFor();
   await page.locator('#tab-projects').click();
   await page.locator('#new').waitFor();
+
+  await page.locator('#tab-properties').click();
+  await page.locator('#new-property').click();
+  assert.equal(await page.locator('#property-form [name=slug]').count(), 0);
+  await page.locator('#property-form [name=title]').fill('Piso de Álamo');
+  await page.locator('#property-form [name=description]').fill('Un piso **luminoso**.');
+  await page.locator('#property-form [name=published]').check();
+  const png = Buffer.from(await page.evaluate(() => {
+    const canvas = document.createElement('canvas');
+    canvas.width = canvas.height = 8;
+    canvas.getContext('2d').fillRect(0, 0, 8, 8);
+    return canvas.toDataURL('image/png').split(',')[1];
+  }), 'base64');
+  await page.locator('#property-form [name=pending_photos]').setInputFiles([
+    {name:'salon.png',mimeType:'image/png',buffer:png},
+    {name:'cocina.png',mimeType:'image/png',buffer:png}
+  ]);
+  await page.getByRole('button', {name:'Guardar inmueble'}).click();
+  await page.locator('#notice').filter({hasText:'2 de 2 fotos subidas.'}).waitFor();
+  assert.equal(await page.locator('.gallery-editor .image-row').count(),2);
+  assert.equal(await page.locator('#property-form [name=published]').isChecked(),true);
+  await page.locator('#property-form [name=location]').fill('Ubicación pendiente');
+  await page.locator('[data-property-alt]').nth(1).fill('Otra descripción pendiente');
+  await page.locator('[data-property-alt]').first().fill('Salón principal');
+  const propertySave = page.locator('[data-property-save-alt]').first();
+  await propertySave.scrollIntoViewIfNeeded();
+  const saveScroll = await page.evaluate(() => window.scrollY);
+  await propertySave.click();
+  await page.locator('#notice').filter({hasText:'Texto alternativo guardado.'}).waitFor();
+  assert.equal(await page.locator('[data-property-alt]').first().inputValue(),'Salón principal');
+  assert.equal(await page.locator('[data-property-alt]').nth(1).inputValue(),'Otra descripción pendiente');
+  assert.equal(await page.locator('#property-form [name=location]').inputValue(),'Ubicación pendiente');
+  assert.equal(await propertySave.evaluate(element => element === document.activeElement),true);
+  assert.ok(Math.abs(await page.evaluate(() => window.scrollY) - saveScroll) < 150);
+  const failSave = '**/api/admin/properties/*/images/*';
+  await page.route(failSave, async route => {
+    if (route.request().method() === 'PATCH') {
+      await route.fulfill({status:500, contentType:'application/json', body:JSON.stringify({error:'Error de prueba'})});
+    } else await route.continue();
+  });
+  await page.locator('[data-property-save-alt]').nth(1).click();
+  await page.locator('#notice').filter({hasText:'Error de prueba'}).waitFor();
+  assert.equal(await page.locator('[data-property-alt]').nth(1).inputValue(),'Otra descripción pendiente');
+  assert.equal(await page.locator('#property-form [name=location]').inputValue(),'Ubicación pendiente');
+  await page.unroute(failSave);
+  await page.locator('#property-upload [name=file]').setInputFiles([
+    {name:'vista.png',mimeType:'image/png',buffer:png},
+    {name:'terraza.png',mimeType:'image/png',buffer:png}
+  ]);
+  await page.getByRole('button', {name:'Subir fotos'}).click();
+  await page.locator('#notice').filter({hasText:'2 de 2 fotos subidas.'}).waitFor();
+  assert.equal(await page.locator('.gallery-editor .image-row').count(),4);
+  assert.equal(await page.locator('[data-property-alt]').first().inputValue(),'Salón principal');
+  await page.locator('#property-form [name=location]').fill('Cambios sin guardar');
+  await page.locator('[data-property-alt]').nth(1).fill('Descripción sin guardar');
+  const removeProperty = page.locator('[data-property-remove]').first();
+  await removeProperty.scrollIntoViewIfNeeded();
+  const propertyScroll = await page.evaluate(() => window.scrollY);
+  page.once('dialog', dialog => dialog.accept());
+  await removeProperty.click();
+  await page.locator('#notice').filter({hasText:'Foto eliminada.'}).waitFor();
+  assert.equal(await page.locator('.gallery-editor .image-row').count(),3);
+  assert.equal(await page.locator('#property-form [name=location]').inputValue(),'Cambios sin guardar');
+  assert.equal(await page.locator('[data-property-alt]').first().inputValue(),'Descripción sin guardar');
+  assert.equal(await page.locator('[data-property-remove]').first().evaluate(element => element === document.activeElement),true);
+  assert.ok(Math.abs(await page.evaluate(() => window.scrollY) - propertyScroll) < 150);
+  assert.equal(await page.locator('[data-property-move][data-direction="-1"]').first().isDisabled(),true);
+  const propertyIds = await page.locator('[data-property-remove]').evaluateAll(buttons => buttons.map(button => button.dataset.propertyRemove));
+  await page.locator('[data-property-move="0"][data-direction="1"]').click();
+  await page.locator('#notice').filter({hasText:'Orden actualizado.'}).waitFor();
+  const reorderedIds = await page.locator('[data-property-remove]').evaluateAll(buttons => buttons.map(button => button.dataset.propertyRemove));
+  assert.deepEqual(reorderedIds, [propertyIds[1], propertyIds[0], propertyIds[2]]);
+  await page.locator('#property-form [name=title]').fill('Piso reformado');
+  await page.getByRole('button', {name:'Guardar inmueble'}).click();
+  await page.locator('#notice').filter({hasText:'Inmueble guardado.'}).waitFor();
+  await page.goto(`${base}/inmobiliaria/piso-de-alamo`);
+  assert.equal(await page.locator('h1').textContent(),'Piso reformado');
+  assert.equal(await page.locator('.description strong').textContent(),'luminoso');
+  assert.equal(await page.locator('.project-gallery-item').count(),3);
+
+  // If one photo fails, the successfully created listing remains an editable draft.
+  await page.goto(`${base}/admin`);
+  await page.locator('#tab-properties').click();
+  await page.locator('#new-property').click();
+  await page.locator('#property-form [name=title]').fill('Piso fallido');
+  await page.locator('#property-form [name=published]').check();
+  await page.locator('#property-form [name=pending_photos]').setInputFiles([
+    {name:'correcta.png',mimeType:'image/png',buffer:png},
+    {name:'incorrecta.txt',mimeType:'text/plain',buffer:Buffer.from('not an image')}
+  ]);
+  await page.getByRole('button', {name:'Guardar inmueble'}).click();
+  await page.locator('#notice').filter({hasText:'1 de 2 fotos subidas.'}).waitFor();
+  assert.equal(await page.locator('#property-form [name=published]').isChecked(),false);
+  assert.equal(await page.locator('.gallery-editor .image-row').count(),1);
+  assert.equal((await page.request.get(`${base}/inmobiliaria/piso-fallido`)).status(),404);
+  page.once('dialog', dialog => dialog.accept());
+  await page.locator('[data-property-remove]').click();
+  await page.locator('#notice').filter({hasText:'Foto eliminada.'}).waitFor();
+  assert.equal(await page.locator('.gallery-editor .image-row').count(),0);
+  assert.equal(await page.locator('#property-upload [name=file]').evaluate(element => element === document.activeElement),true);
 
   await page.goto(`${base}/proyectos/browser-gallery`);
   const items = page.locator('.project-gallery-item');
@@ -33,6 +168,32 @@ try {
   await page.keyboard.press('Escape');
   await page.waitForFunction(() => !document.querySelector('.gallery-viewer').open);
   assert.equal(await items.first().evaluate(element => element === document.activeElement), true);
+  await page.goto(`${base}/admin`);
+  await page.locator('[data-id]').filter({hasText:'Browser gallery'}).click();
+  await page.locator('#project-form [name=location]').fill('Proyecto sin guardar');
+  await page.locator('[data-alt]').nth(1).fill('Imagen sin guardar');
+  await page.locator('[data-alt]').first().fill('Texto guardado');
+  const projectSave = page.locator('[data-save-alt]').first();
+  await projectSave.scrollIntoViewIfNeeded();
+  const projectSaveScroll = await page.evaluate(() => window.scrollY);
+  await projectSave.click();
+  await page.locator('#notice').filter({hasText:'Texto alternativo guardado.'}).waitFor();
+  assert.equal(await page.locator('[data-alt]').nth(1).inputValue(),'Imagen sin guardar');
+  assert.equal(await page.locator('#project-form [name=location]').inputValue(),'Proyecto sin guardar');
+  assert.equal(await projectSave.evaluate(element => element === document.activeElement),true);
+  assert.ok(Math.abs(await page.evaluate(() => window.scrollY) - projectSaveScroll) < 150);
+  const removeProject = page.locator('[data-remove]').first();
+  await removeProject.scrollIntoViewIfNeeded();
+  page.once('dialog', dialog => dialog.accept());
+  await removeProject.click();
+  await page.locator('#notice').filter({hasText:'Imagen eliminada.'}).waitFor();
+  assert.equal(await page.locator('.gallery-editor .image-row').count(),1);
+  assert.equal(await page.locator('#project-form [name=location]').inputValue(),'Proyecto sin guardar');
+  assert.equal(await page.locator('[data-alt]').first().inputValue(),'Imagen sin guardar');
+  assert.equal(await page.locator('[data-remove]').first().evaluate(element => element === document.activeElement),true,
+    `Focus after project deletion: ${await page.evaluate(() => document.activeElement?.outerHTML)}`);
+  // Removing the penultimate row can reduce the document height and clamp scrollY.
+  assert.ok(await page.evaluate(() => window.scrollY) > 200);
   assert.deepEqual(errors, []);
   console.log('Browser smoke passed: admin tabs and gallery navigation.');
 } finally {

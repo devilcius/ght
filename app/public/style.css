@@ -27,6 +27,17 @@ button {
   outline:3px solid #c66544;
   outline-offset:3px;
 }
+.description.description--markdown {
+  white-space: normal;
+}
+.description--markdown a {
+  text-decoration: underline;
+  text-underline-offset: 0.15em;
+}
+.description--markdown img {
+  max-width: 100%;
+  height: auto;
+}
 .header {
   height:100px;
   padding:0 6%;
@@ -409,9 +420,17 @@ footer {
   padding-bottom:18px;
   margin-bottom:35px;
 }
-.admin-tabs button {
+.admin-tabs a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 13px 18px;
   background:#e5e4da;
   color:#24251f;
+}
+.admin-tabs a[aria-current="page"] {
+  background: #343b32;
+  color: white;
 }
 .admin fieldset {
   border:1px solid #d3d2c8;

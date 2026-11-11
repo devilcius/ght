@@ -16,5 +16,8 @@
   "devDependencies": {
     "playwright": "^1.58.2",
     "wrangler": "^4.64.0"
+  },
+  "dependencies": {
+    "markdown-it": "^15.0.3"
   }
 }

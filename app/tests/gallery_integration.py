@@ -96,6 +96,9 @@ class GalleryIntegrationTests(unittest.TestCase):
 
     def test_project_gallery_publication_and_media_access(self):
         admin, public, admin_port = self.admin, self.public, self.port
+        for route in ('/admin', '/admin/proyectos', '/admin/inmobiliaria', '/admin/estudio'):
+            assert call(public, route)[0] == 401
+            assert call(admin, route)[0] == 200
         project = {'title':'Gallery test','slug':'gallery-test','category':'Residencial','published':False}
         status, data, _ = send_json(admin, '/api/admin/projects', 'POST', project)
         assert status == 201, data
@@ -210,11 +213,19 @@ class GalleryIntegrationTests(unittest.TestCase):
 
     def test_property_publication_and_enquiry(self):
         admin, public, admin_port = self.admin, self.public, self.port
-        listing = {'title':'Piso de prueba','slug':'piso-prueba','operation':'sale','availability':'available','location':'Madrid','price_eur':'250000','area_m2':'80','bedrooms':'2','bathrooms':'1','description':'Piso de prueba','published':False}
+        listing = {'title':'Piso de prueba','operation':'sale','availability':'available','location':'Madrid','price_eur':'250000','area_m2':'80','bedrooms':'2','bathrooms':'1','description':'Piso de prueba','published':False}
         status, data, _ = send_json(admin, '/api/admin/properties', 'POST', listing)
         assert status == 201, data
         prop = json.loads(data)['id']; prop_path = f'/api/admin/properties/{prop}'
-        assert call(public, '/inmobiliaria/piso-prueba')[0] == 404
+        assert json.loads(call(admin, prop_path)[1])['slug'] == 'piso-de-prueba'
+        status, duplicate, _ = send_json(admin, '/api/admin/properties', 'POST', listing)
+        assert status == 201, duplicate
+        duplicate_id = json.loads(duplicate)['id']
+        assert json.loads(call(admin, '/api/admin/properties/'+duplicate_id)[1])['slug'] == 'piso-de-prueba-2'
+        changed = {**listing, 'title':'Título cambiado', 'slug':'intent-to-change'}
+        assert send_json(admin, prop_path, 'PUT', changed)[0] == 200
+        assert json.loads(call(admin, prop_path)[1])['slug'] == 'piso-de-prueba'
+        assert call(public, '/inmobiliaria/piso-de-prueba')[0] == 404
         assert call(public, '/api/admin/properties')[0] == 401
         boundary = uuid.uuid4().hex
         payload = (f'--{boundary}\r\nContent-Disposition: form-data; name="alt"\r\n\r\nSalón\r\n--{boundary}\r\nContent-Disposition: form-data; name="file"; filename="x.png"\r\nContent-Type: image/png\r\n\r\n').encode() + PNG + f'\r\n--{boundary}--\r\n'.encode()
@@ -230,7 +241,7 @@ class GalleryIntegrationTests(unittest.TestCase):
         listing['published']=True
         assert send_json(admin, prop_path, 'PUT', listing)[0] == 200
         assert b'Piso de prueba' in call(public, '/inmobiliaria?operacion=sale')[1]
-        property_page = call(public, '/inmobiliaria/piso-prueba')[1]
+        property_page = call(public, '/inmobiliaria/piso-de-prueba')[1]
         assert b'Galer\xc3\xada del inmueble' in property_page
         assert b'<dialog class="gallery-viewer"' in property_page and b'/gallery.js' in property_page
         assert key.encode() in property_page and property_variant.encode() in property_page
@@ -238,20 +249,20 @@ class GalleryIntegrationTests(unittest.TestCase):
         assert call(public, '/media/'+key)[0] == 200
         status, _, headers = call(public, '/media/'+property_variant); assert status == 200
         property_etag = headers['ETag']
-        assert b'/inmobiliaria/piso-prueba' in call(admin, '/sitemap.xml')[1]
-        contact = call(admin, '/contacto?inmueble=piso-prueba')[1]
-        assert b'Consulta sobre' in contact and b'piso-prueba' in contact
-        enquiry={'name':'Prueba','email':'test@example.com','message':'Quiero saber más sobre este inmueble.','consent':True,'propertySlug':'piso-prueba'}
+        assert b'/inmobiliaria/piso-de-prueba' in call(admin, '/sitemap.xml')[1]
+        contact = call(admin, '/contacto?inmueble=piso-de-prueba')[1]
+        assert b'Consulta sobre' in contact and b'piso-de-prueba' in contact
+        enquiry={'name':'Prueba','email':'test@example.com','message':'Quiero saber más sobre este inmueble.','consent':True,'propertySlug':'piso-de-prueba'}
         assert json.loads(send_json(admin, '/api/contact', 'POST', enquiry)[1])['simulated'] is True
         listing['published']=False
         assert send_json(admin, prop_path, 'PUT', listing)[0] == 200
-        assert call(public, '/inmobiliaria/piso-prueba')[0] == 404
+        assert call(public, '/inmobiliaria/piso-de-prueba')[0] == 404
         assert call(public, '/media/'+key)[0] == 404
         req = urllib.request.Request(f'http://127.0.0.1:{admin_port}/media/{property_variant}',headers={'Host':f'public.test:{admin_port}','If-None-Match':property_etag})
         try: urllib.request.urlopen(req); raise AssertionError('Unpublished image must not return 304')
         except urllib.error.HTTPError as error: assert error.code == 404
         assert send_json(admin, '/api/contact', 'POST', enquiry)[0] == 400
-        assert b'/inmobiliaria/piso-prueba' not in call(admin, '/sitemap.xml')[1]
+        assert b'/inmobiliaria/piso-de-prueba' not in call(admin, '/sitemap.xml')[1]
         assert call(admin, prop_path+'/images/'+image_id, 'DELETE')[0] == 200
         assert call(admin, '/media/'+property_variant)[0] == 404
 

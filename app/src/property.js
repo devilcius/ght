@@ -19,6 +19,27 @@ export function validateProperty(input) {
  if(areaRaw!==null && areaRaw!==undefined && areaRaw!=='') { if(!/^\d+(?:\.\d{1,2})?$/.test(String(areaRaw)) || Number(areaRaw)<=0 || Number(areaRaw)>1000000) throw new Error('La superficie no es válida.'); area_m2=Number(areaRaw); }
  return {title,slug,operation:input.operation,availability:input.availability,location,description,area_m2,price_eur:integer(input.price_eur,'El precio',1000000000),bedrooms:integer(input.bedrooms,'El número de dormitorios',1000),bathrooms:integer(input.bathrooms,'El número de baños',1000),published:input.published===true||input.published===1?1:0};
 }
+export function propertySlug(title) {
+ const base=title.normalize('NFKD').replace(/[\u0300-\u036f]/g,'').toLowerCase()
+  .replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'').slice(0,170).replace(/-+$/,'');
+ return base || 'inmueble';
+}
+async function createProperty(env, input) {
+ const id=crypto.randomUUID(),now=new Date().toISOString();
+ // Validate before looking for a free slug, and retain the generated URL on later edits.
+ const initial=validateProperty({...input,slug:'inmueble'}),base=propertySlug(initial.title);
+ for(let suffix=1;suffix<=1000;suffix++) {
+  const slug=suffix===1?base:`${base}-${suffix}`;
+  if(await env.DB.prepare('SELECT id FROM properties WHERE slug=?').bind(slug).first())continue;
+  try {
+   await env.DB.prepare('INSERT INTO properties (id,title,slug,operation,availability,location,price_eur,area_m2,bedrooms,bathrooms,description,published,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)').bind(id,initial.title,slug,initial.operation,initial.availability,initial.location,initial.price_eur,initial.area_m2,initial.bedrooms,initial.bathrooms,initial.description,initial.published,now,now).run();
+   return id;
+  } catch(error) {
+   if(!/UNIQUE constraint failed: properties\.slug/i.test(error.message || ''))throw error;
+  }
+ }
+ throw new Error('No se ha podido generar una dirección única para el inmueble.');
+}
 export async function listProperties(env,all=false) {
  const rows=(await env.DB.prepare(`SELECT p.*, (SELECT json_object('object_key',i.object_key,'thumbnail_key',i.thumbnail_key,'variants',json(${variantsExpression('property_image_variants')})) FROM property_images i WHERE i.id=COALESCE((SELECT x.id FROM property_images x WHERE x.property_id=p.id AND x.id=p.cover_image_id),(SELECT x.id FROM property_images x WHERE x.property_id=p.id ORDER BY x.position,x.id LIMIT 1)) LIMIT 1) AS cover_json FROM properties p ${all?'':'WHERE p.published=1'} ORDER BY p.created_at DESC,p.id ASC`).all()).results;
  return rows.map(({cover_json,...p})=>({...p,cover:cover_json?JSON.parse(cover_json):null}));
@@ -29,8 +50,7 @@ export const propertyCard = p => `<a class="project property-card" href="/inmobi
 export async function propertyApi(request,env,path) {
  if(path==='/api/admin/properties' && request.method==='GET') return json(await listProperties(env,true));
  if(path==='/api/admin/properties' && request.method==='POST') {
-  const p=validateProperty(await request.json()),id=crypto.randomUUID(),now=new Date().toISOString();
-  await env.DB.prepare('INSERT INTO properties (id,title,slug,operation,availability,location,price_eur,area_m2,bedrooms,bathrooms,description,published,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)').bind(id,p.title,p.slug,p.operation,p.availability,p.location,p.price_eur,p.area_m2,p.bedrooms,p.bathrooms,p.description,p.published,now,now).run();return json({id},201);
+  const id=await createProperty(env,await request.json());return json({id},201);
  }
  const match=path.match(/^\/api\/admin\/properties\/([\w-]+)(?:\/(images|order|cover)(?:\/([\w-]+)(?:\/(thumbnail))?)?)?$/);
  if(!match)return json({error:'No encontrado'},404);
@@ -39,7 +59,7 @@ export async function propertyApi(request,env,path) {
  if(!property)return json({error:'Inmueble no encontrado'},404);
  if(!action && request.method==='GET')return json({...property,images:await imagesFor(env,'properties',id)});
  if(!action && request.method==='PUT') {
-  const p=validateProperty(await request.json());await env.DB.prepare('UPDATE properties SET title=?,slug=?,operation=?,availability=?,location=?,price_eur=?,area_m2=?,bedrooms=?,bathrooms=?,description=?,published=?,updated_at=? WHERE id=?').bind(p.title,p.slug,p.operation,p.availability,p.location,p.price_eur,p.area_m2,p.bedrooms,p.bathrooms,p.description,p.published,new Date().toISOString(),id).run();return json({ok:true});
+  const p=validateProperty({...await request.json(),slug:property.slug});await env.DB.prepare('UPDATE properties SET title=?,slug=?,operation=?,availability=?,location=?,price_eur=?,area_m2=?,bedrooms=?,bathrooms=?,description=?,published=?,updated_at=? WHERE id=?').bind(p.title,p.slug,p.operation,p.availability,p.location,p.price_eur,p.area_m2,p.bedrooms,p.bathrooms,p.description,p.published,new Date().toISOString(),id).run();return json({ok:true});
  }
  if(action==='images' && !imageId && request.method==='POST') {
   const form=await request.formData(),file=form.get('file');

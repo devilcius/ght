@@ -31,9 +31,9 @@ export default {async fetch(request, env) {
     }
     if (path === '/api/contact') return await handleContact(request,env);
     if (path.startsWith('/api/admin/')) return await adminApi(request,env,path);
-    if (path === '/admin') {
+    if (/^\/admin(?:\/(?:proyectos|inmobiliaria|estudio))?\/?$/.test(path)) {
       if (!await isAdmin(request,env)) return html(layout('Acceso restringido','<main class="section"><h1>Acceso restringido</h1><p>El acceso de administración no está configurado.</p></main>'),401);
-      return html(layout('Administración','<main class="admin section"><p class="eyebrow">GHT / ADMINISTRACIÓN</p><h1>Administración</h1><nav class="admin-tabs" aria-label="Secciones de administración"><button id="tab-projects">Proyectos</button><button id="tab-properties">Inmobiliaria</button><button id="tab-content">Estudio y contacto</button></nav><div id="app"></div></main><script type="module" src="/admin.js"></script>'));
+      return html(layout('Administración','<main class="admin section"><p class="eyebrow">GHT / ADMINISTRACIÓN</p><h1>Administración</h1><nav class="admin-tabs" aria-label="Secciones de administración"><a id="tab-projects" href="/admin/proyectos">Proyectos</a><a id="tab-properties" href="/admin/inmobiliaria">Inmobiliaria</a><a id="tab-content" href="/admin/estudio">Estudio y contacto</a></nav><div id="app"></div></main><script type="module" src="/admin.js"></script>'));
     }
     if (path.startsWith('/media/')) return await serveMedia(request, env, path);
     if (path === '/') return await homePage(env, url, origin, indexable);

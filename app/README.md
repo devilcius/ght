@@ -16,6 +16,8 @@ npm run dev
 
 Open the URL printed by Wrangler; `/admin` opens the local editor. D1 and R2 data persist in `app/.wrangler/`. To reset **local data only**, stop the server, remove that directory, and repeat migration and seeding. Local authentication bypass is enabled only by the `dev` script and only for localhost requests. Never set `LOCAL_DEVELOPMENT` in a deployed environment.
 
+The editor sections have direct URLs: `/admin/proyectos`, `/admin/inmobiliaria` and `/admin/estudio`. The original `/admin` address opens projects.
+
 ### Copy production data locally
 
 To replace local development data with a production snapshot, first stop local Wrangler development servers. Sign in with `npx wrangler login` if needed, then run from `app/`:
@@ -53,7 +55,7 @@ The admin entry point, `public/admin.js`, connects the tabs to the feature modul
 
 The project editor lets you update image descriptions, reorder images, select a cover, and remove images. Removing a cover falls back to the first remaining image. If object-storage deletion fails, the image is removed from the project and the deletion is retried on later admin requests. Unpublished projects and their images are only available to authorized administrators.
 
-The **Inmobiliaria** tab in the admin manages separate property listings. An editor can create a draft or publish an apartment with a sale/rental option, availability, location, euro price, size, bedroom and bathroom counts, description, and an ordered photo gallery. Leaving the price empty displays “Consultar precio”; rental prices are monthly. A property page links to the contact form with the listing reference, which is included in delivered enquiries. No sample properties are inserted. The same local email simulation and live-delivery prerequisites apply to property enquiries.
+The **Inmobiliaria** tab in the admin manages separate property listings. An editor can create a draft or publish an apartment with a sale/rental option, availability, location, euro price, size, bedroom and bathroom counts, a Markdown description, and an ordered photo gallery. The property URL is generated from its title at creation, with a suffix if needed; it remains stable when the title changes. The editor can select multiple photos when creating or editing a listing, then add a name or description for each photo. If an upload fails during creation, successful uploads remain attached and a listing requested for publication stays a draft. Leaving the price empty displays “Consultar precio”; rental prices are monthly. A property page links to the contact form with the listing reference, which is included in delivered enquiries. No sample properties are inserted. The same local email simulation and live-delivery prerequisites apply to property enquiries.
 
 Use **Orden en el portafolio** to set a project's position in the overall portfolio and **Orden en su categoría** to set its position when that category is selected. Lower numbers appear first. Projects without a category-specific position follow those with one, using their overall order as a fallback; overall ties use creation date. Leave either field blank to remove that explicit position. Changing a project's category clears the category position in the editor.
 
@@ -69,7 +71,7 @@ For an isolated gallery integration test, run `python3 app/tests/gallery_integra
 
 ## Production prerequisites
 
-Before deploying, replace the placeholder D1 ID and configure separate D1/R2 resources. Protect `/admin` and `/api/admin/*` with Cloudflare Access; configure `ACCESS_TEAM_DOMAIN`, `ACCESS_AUDIENCE`, and `ADMIN_EMAIL`. The Worker verifies the Access JWT and fails closed without this configuration. Complete the migration, legal content, image optimization, testing and backup/restore work before publishing.
+Before deploying, replace the placeholder D1 ID and configure separate D1/R2 resources. Protect `/admin`, its `/admin/*` section URLs, and `/api/admin/*` with the same Cloudflare Access application; configure `ACCESS_TEAM_DOMAIN`, `ACCESS_AUDIENCE`, and `ADMIN_EMAIL`. The Worker verifies the Access JWT and fails closed without this configuration. Complete the migration, legal content, image optimization, testing and backup/restore work before publishing.
 
 Search metadata and `sitemap.xml` use the trusted `PUBLIC_SITE_URL` origin when configured; otherwise they use `https://ghtarquitectura.com` for deployed hosts and the local request origin on localhost. Set `PUBLIC_SITE_URL` to the intended HTTPS origin when deploying to a different domain. Requests on another deployed hostname receive a noindex directive and a disallow-all `robots.txt`, so preview URLs do not advertise themselves for indexing. The sitemap contains public pages and published projects only; project metadata uses its description or, if empty, its title and project details. The selected cover image is used for social sharing where available.
 
