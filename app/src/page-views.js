@@ -5,26 +5,114 @@ import {layout, pageDescription, siteDescription} from './layout.js';
 import {html} from './http.js';
 
 export function renderHome({filters, list, content, origin, indexable, selectedCategory}) {
-  return html(layout('Arquitectura y urbanismo', `<main><section class="hero"><div><p class="eyebrow">ARQUITECTURA Y URBANISMO · MADRID</p><h1>Espacios para<br><em>vivir mejor.</em></h1><p class="hero-copy">Arquitectura pensada desde las personas, el lugar y el paso del tiempo.</p><a class="text-link" href="#proyectos">Explorar proyectos <span>↗</span></a></div><div class="hero-art"><span>GHT</span><small>EST. 1976<br>MADRID</small></div><div class="hero-index">01 / 03 <span>ESTUDIO DE ARQUITECTURA</span></div></section><section class="section" id="proyectos"><div class="section-heading"><div><p class="eyebrow">UNA SELECCIÓN DE NUESTRO TRABAJO</p><h2>Proyectos<span class="dot">.</span></h2></div><p>Ideas que toman forma.<br>Espacios que cuentan historias.</p></div>${filters}<p class="project-count">${list.length} ${list.length === 1 ? 'proyecto' : 'proyectos'}</p><div class="project-grid">${list.map(card).join('') || '<p>No hay proyectos en esta categoría.</p>'}</div></section><section class="about section" id="estudio"><p class="eyebrow">02 / EL ESTUDIO</p><div><h2>Arquitectura con<br><em>perspectiva.</em></h2><p>Desde 1976, en GHT trabajamos en arquitectura y urbanismo desde Madrid. Una trayectoria construida a través de proyectos, personas y lugares.</p><a href="/estudio" class="text-link">Conoce el estudio ↗</a></div></section><section class="contact section" id="contacto"><p class="eyebrow">03 / HABLEMOS</p><h2>¿Tienes un proyecto<br><em>en mente?</em></h2><a class="contact-link" href="/contacto">Hablemos ↗</a><div class="contact-details"><span>${e(content.contact_address)}</span><a href="tel:${e(content.contact_phone.replace(/[^+\d]/g,''))}">${e(content.contact_phone)}</a><a href="mailto:${encodeURIComponent(content.contact_email)}">${e(content.contact_email)}</a></div></section></main>`,{canonical:origin+'/',description:siteDescription,index:indexable && !selectedCategory}));
+  return html(layout('Arquitectura y urbanismo', `<main>
+      <section class="hero">
+      <div>
+      <p class="eyebrow">ARQUITECTURA Y URBANISMO · MADRID</p>
+      <h1>Espacios para<br><em>vivir mejor.</em></h1>
+      <p class="hero-copy">Arquitectura pensada desde las personas, el lugar y el paso del tiempo.</p><a class="text-link" href="#proyectos">Explorar proyectos <span>↗</span></a>
+      </div>
+      <div class="hero-art"><span>GHT</span><small>EST. 1976<br>MADRID</small>
+      </div>
+      <div class="hero-index">01 / 03 <span>ESTUDIO DE ARQUITECTURA</span>
+      </div>
+      </section>
+      <section class="section" id="proyectos">
+      <div class="section-heading">
+      <div>
+      <p class="eyebrow">UNA SELECCIÓN DE NUESTRO TRABAJO</p>
+      <h2>Proyectos<span class="dot">.</span></h2>
+      </div>
+      <p>Ideas que toman forma.<br>Espacios que cuentan historias.</p>
+      </div>${filters}<p class="project-count">${list.length} ${list.length === 1 ? 'proyecto' : 'proyectos'}</p>
+      <div class="project-grid">${list.map(card).join('') || '<p>No hay proyectos en esta categoría.</p>'}</div>
+      </section>
+      <section class="about section" id="estudio">
+      <p class="eyebrow">02 / EL ESTUDIO</p>
+      <div>
+      <h2>Arquitectura con<br><em>perspectiva.</em></h2>
+      <p>Desde 1976, en GHT trabajamos en arquitectura y urbanismo desde Madrid. Una trayectoria construida a través de proyectos, personas y lugares.</p><a href="/estudio" class="text-link">Conoce el estudio ↗</a>
+      </div>
+      </section>
+      <section class="contact section" id="contacto">
+      <p class="eyebrow">03 / HABLEMOS</p>
+      <h2>¿Tienes un proyecto<br><em>en mente?</em></h2><a class="contact-link" href="/contacto">Hablemos ↗</a>
+      <div class="contact-details"><span>${e(content.contact_address)}</span><a href="tel:${e(content.contact_phone.replace(/[^+\d]/g,''))}">${e(content.contact_phone)}</a><a href="mailto:${encodeURIComponent(content.contact_email)}">${e(content.contact_email)}</a>
+      </div>
+      </section>
+    </main>`,{canonical:origin+'/',description:siteDescription,index:indexable && !selectedCategory}));
 }
 
 export function renderStudio({team, content, origin, indexable}) {
-  return html(layout('El estudio', `<main class="section content-page"><p class="eyebrow">GHT / EL ESTUDIO</p><h1>Sobre nuestro <em>estudio.</em></h1><div class="content-intro">${paragraphs(content.studio_intro)}</div><section class="team"><p class="eyebrow">LAS PERSONAS DETRÁS DE GHT</p><h2>Nuestro equipo<span class="dot">.</span></h2><div class="team-grid">${team}</div></section><a class="text-link" href="/contacto">Hablemos de tu proyecto ↗</a></main>`,{canonical:origin+'/estudio',description:'Conoce la trayectoria y el equipo de GHT Arquitectura y Urbanismo en Madrid.',index:indexable}));
+  return html(layout('El estudio', `<main class="section content-page">
+      <p class="eyebrow">GHT / EL ESTUDIO</p>
+      <h1>Sobre nuestro <em>estudio.</em></h1>
+      <div class="content-intro">${paragraphs(content.studio_intro)}</div>
+      <section class="team">
+      <p class="eyebrow">LAS PERSONAS DETRÁS DE GHT</p>
+      <h2>Nuestro equipo<span class="dot">.</span></h2>
+      <div class="team-grid">${team}</div>
+      </section><a class="text-link" href="/contacto">Hablemos de tu proyecto ↗</a>
+    </main>`,{canonical:origin+'/estudio',description:'Conoce la trayectoria y el equipo de GHT Arquitectura y Urbanismo en Madrid.',index:indexable}));
 }
 
 export function renderContact({content, enquiry, origin, indexable}) {
-  return html(layout('Contacto', `<main class="section content-page"><p class="eyebrow">GHT / CONTACTO</p><h1>Hablemos de tu <em>proyecto.</em></h1><p>Estamos en Madrid. Puedes contactar con nosotros por teléfono o correo electrónico.</p><div class="contact-cards"><div><span>VISÍTANOS</span><p>${e(content.contact_address)}</p></div><div><span>LLÁMANOS</span><p><a href="tel:${e(content.contact_phone.replace(/[^+\d]/g,''))}">${e(content.contact_phone)}</a></p></div><div><span>ESCRÍBENOS</span><p><a href="mailto:${encodeURIComponent(content.contact_email)}">${e(content.contact_email)}</a></p></div></div><section class="contact-form-section" aria-labelledby="form-heading"><div><p class="eyebrow">TU CONSULTA</p><h2 id="form-heading">Cuéntanos tu idea<span class="dot">.</span></h2><p>Escríbenos y nos pondremos en contacto contigo.</p></div><form id="contact-form" class="contact-form">${enquiry}<div class="contact-fields"><label for="contact-name">Nombre</label><input id="contact-name" name="name" autocomplete="name" required minlength="2" maxlength="120"><label for="contact-email">Correo electrónico</label><input id="contact-email" name="email" type="email" autocomplete="email" required maxlength="254"><label for="contact-message">Mensaje</label><textarea id="contact-message" name="message" required minlength="10" maxlength="5000" rows="7"></textarea></div><div class="contact-honeypot" aria-hidden="true"><label for="contact-website">Sitio web</label><input id="contact-website" name="website" type="text" tabindex="-1" autocomplete="off"></div><label class="contact-consent"><input type="checkbox" name="consent" required><span>Acepto que GHT utilice mis datos para responder a mi consulta.</span></label><p id="contact-status" role="status" aria-live="polite" tabindex="-1"></p><button type="submit">Enviar mensaje <span aria-hidden="true">↗</span></button><noscript><p>Para enviar este formulario necesitas activar JavaScript. También puedes escribirnos al correo indicado arriba.</p></noscript></form></section><script type="module" src="/contact.js"></script></main>`,{canonical:origin+'/contacto' ,description:'Contacta con GHT Arquitectura y Urbanismo en Madrid por teléfono o correo electrónico.',index:indexable}));
+  return html(layout('Contacto', `<main class="section content-page">
+      <p class="eyebrow">GHT / CONTACTO</p>
+      <h1>Hablemos de tu <em>proyecto.</em></h1>
+      <p>Estamos en Madrid. Puedes contactar con nosotros por teléfono o correo electrónico.</p>
+      <div class="contact-cards">
+      <div><span>VISÍTANOS</span>
+      <p>${e(content.contact_address)}</p>
+      </div>
+      <div><span>LLÁMANOS</span>
+      <p><a href="tel:${e(content.contact_phone.replace(/[^+\d]/g,''))}">${e(content.contact_phone)}</a></p>
+      </div>
+      <div><span>ESCRÍBENOS</span>
+      <p><a href="mailto:${encodeURIComponent(content.contact_email)}">${e(content.contact_email)}</a></p>
+      </div>
+      </div>
+      <section class="contact-form-section" aria-labelledby="form-heading">
+      <div>
+      <p class="eyebrow">TU CONSULTA</p>
+      <h2 id="form-heading">Cuéntanos tu idea<span class="dot">.</span></h2>
+      <p>Escríbenos y nos pondremos en contacto contigo.</p>
+      </div>
+      <form id="contact-form" class="contact-form">${enquiry}<div class="contact-fields"><label for="contact-name">Nombre</label><input id="contact-name" name="name" autocomplete="name" required minlength="2" maxlength="120"><label for="contact-email">Correo electrónico</label><input id="contact-email" name="email" type="email" autocomplete="email" required maxlength="254"><label for="contact-message">Mensaje</label><textarea id="contact-message" name="message" required minlength="10" maxlength="5000" rows="7"></textarea>
+      </div>
+      <div class="contact-honeypot" aria-hidden="true"><label for="contact-website">Sitio web</label><input id="contact-website" name="website" type="text" tabindex="-1" autocomplete="off">
+      </div><label class="contact-consent"><input type="checkbox" name="consent" required><span>Acepto que GHT utilice mis datos para responder a mi consulta.</span></label>
+      <p id="contact-status" role="status" aria-live="polite" tabindex="-1"></p><button type="submit">Enviar mensaje <span aria-hidden="true">↗</span></button><noscript>
+      <p>Para enviar este formulario necesitas activar JavaScript. También puedes escribirnos al correo indicado arriba.</p></noscript>
+      </form>
+      </section>
+      <script type="module" src="/contact.js"></script>
+    </main>`,{canonical:origin+'/contacto' ,description:'Contacta con GHT Arquitectura y Urbanismo en Madrid por teléfono o correo electrónico.',index:indexable}));
 }
 
 export function renderProperties({filters, list, origin, indexable, selected}) {
-  return html(layout('Inmobiliaria',`<main class="section content-page properties-page"><p class="eyebrow">GHT / INMOBILIARIA</p><h1>Encuentra tu <em>espacio.</em></h1><p>Descubre nuestros inmuebles en venta y alquiler.</p>${filters}<p class="project-count">${list.length} ${list.length===1?'inmueble':'inmuebles'}</p><div class="project-grid">${list.map(propertyCard).join('') || '<p>En este momento no hay inmuebles publicados.</p>'}</div></main>`,{canonical:origin+'/inmobiliaria',description:'Descubre los inmuebles en venta y alquiler de GHT Arquitectura.',index:indexable&&!selected}));
+  return html(layout('Inmobiliaria',`<main class="section content-page properties-page">
+      <p class="eyebrow">GHT / INMOBILIARIA</p>
+      <h1>Encuentra tu <em>espacio.</em></h1>
+      <p>Descubre nuestros inmuebles en venta y alquiler.</p>${filters}<p class="project-count">${list.length} ${list.length===1?'inmueble':'inmuebles'}</p>
+      <div class="project-grid">${list.map(propertyCard).join('') || '<p>En este momento no hay inmuebles publicados.</p>'}</div>
+    </main>`,{canonical:origin+'/inmobiliaria',description:'Descubre los inmuebles en venta y alquiler de GHT Arquitectura.',index:indexable&&!selected}));
 }
 
 export function renderProperty({p, facts, gallery, origin, info, image, indexable}) {
-  return html(layout(p.title,`<main class="section detail"><a class="text-link" href="/inmobiliaria">← Todos los inmuebles</a><p class="eyebrow">${e(statusText(p))} / ${e(p.location)}</p><h1>${e(p.title)}</h1><p class="property-price">${e(priceText(p))}</p><p>${e(facts.join(' · '))}</p><div class="description">${paragraphs(p.description)}</div><a class="property-enquire" href="/contacto?inmueble=${encodeURIComponent(p.slug)}#form-heading">Solicitar información ↗</a>${gallery}</main>`,{canonical:origin+'/inmobiliaria/'+encodeURIComponent(p.slug),description:pageDescription(p.description||`${p.title} — ${info}. Inmobiliaria GHT.`),image,index:indexable}));
+  return html(layout(p.title,`<main class="section detail"><a class="text-link" href="/inmobiliaria">← Todos los inmuebles</a>
+      <p class="eyebrow">${e(statusText(p))} / ${e(p.location)}</p>
+      <h1>${e(p.title)}</h1>
+      <p class="property-price">${e(priceText(p))}</p>
+      <p>${e(facts.join(' · '))}</p>
+      <div class="description">${paragraphs(p.description)}</div><a class="property-enquire" href="/contacto?inmueble=${encodeURIComponent(p.slug)}#form-heading">Solicitar información ↗</a>${gallery}</main>`,{canonical:origin+'/inmobiliaria/'+encodeURIComponent(p.slug),description:pageDescription(p.description||`${p.title} — ${info}. Inmobiliaria GHT.`),image,index:indexable}));
 }
 
 export function renderProject({p, gallery, origin, description, socialImage, indexable}) {
-  return html(layout(p.title,`<main class="section detail"><a class="text-link" href="/#proyectos">← Todos los proyectos</a><p class="eyebrow">${e(p.category)} / ${e(p.year)}</p><h1>${e(p.title)}</h1><p>${e(p.location)}</p><p class="description">${e(p.description)}</p>${gallery}</main>`,{canonical:origin+'/proyectos/'+encodeURIComponent(p.slug),description,image:socialImage,index:indexable}));
+  return html(layout(p.title,`<main class="section detail"><a class="text-link" href="/#proyectos">← Todos los proyectos</a>
+      <p class="eyebrow">${e(p.category)} / ${e(p.year)}</p>
+      <h1>${e(p.title)}</h1>
+      <p>${e(p.location)}</p>
+      <p class="description">${e(p.description)}</p>${gallery}</main>`,{canonical:origin+'/proyectos/'+encodeURIComponent(p.slug),description,image:socialImage,index:indexable}));
 }
 
