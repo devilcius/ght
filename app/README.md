@@ -16,6 +16,21 @@ npm run dev
 
 Open the URL printed by Wrangler; `/admin` opens the local editor. D1 and R2 data persist in `app/.wrangler/`. To reset **local data only**, stop the server, remove that directory, and repeat migration and seeding. Local authentication bypass is enabled only by the `dev` script and only for localhost requests. Never set `LOCAL_DEVELOPMENT` in a deployed environment.
 
+### Copy production data locally
+
+To replace local development data with a production snapshot, first stop local Wrangler development servers. Sign in with `npx wrangler login` if needed, then run from `app/`:
+
+```sh
+python3 scripts/sync_production_to_local.py --account-id YOUR_CLOUDFLARE_ACCOUNT_ID
+npm run dev
+```
+
+The account ID is shown by `npx wrangler whoami`; alternatively set the `CLOUDFLARE_ACCOUNT_ID` environment variable. The command reads the D1 database and R2 bucket configured in `wrangler.jsonc`, imports the database into isolated local storage, copies every referenced project and property image and variant, and checks the copy. It does not write to production. D1 export can temporarily make the production database unavailable. Avoid editing production content during the copy, since the database export and R2 reads are not one atomic snapshot; a missing object causes the sync to fail without replacing local data.
+
+After successful verification the command replaces the **entire local Wrangler state**, including locally created projects, property listings and media, and prints the path to the previous state under `app/.wrangler/state-backups/`. Both backups and temporary files are ignored by Git and may contain private data. Ensure sufficient disk space for the staged copy and backup. If an error occurs before replacement, the existing local state is left in place. To try the full transfer without replacing it, add `--verify-only`; this still reads production and uses temporary disk space.
+
+To restore a backup, stop the local server, move `.wrangler/state` to a safe location, then copy the desired printed backup directory to `.wrangler/state`. Keep or delete old backups according to your needs. Linux `/proc` is currently required for checking whether a local Wrangler server is running.
+
 The admin's **Estudio y contacto** tab edits the studio introduction, four team biographies, and contact details. The initial content was extracted from the WordPress dump and should be reviewed with the business. On an existing local database, run `npm run db:migrate` to add these fields without resetting projects.
 
 The contact page includes a form. Local submissions are simulated: no email is sent and no message is stored. Live delivery uses the Resend email API, following the pattern used in Crisalida, and remains unavailable until `CONTACT_FROM_EMAIL` (a verified sender), `CONTACT_TO_EMAIL` (the owner's confirmed recipient), and the `RESEND_API_KEY` secret are configured. These delivery addresses are separate from the public address in the content editor. A successful API response indicates that the provider accepted the email, not that it reached the inbox; submissions are not retained in the application. Review the privacy wording and implement suitable rate limiting or other spam protection before enabling live delivery.
