@@ -73,6 +73,19 @@ button {
   gap:38px;
   font-size:13px;
 }
+.header nav a::before {
+  content:"";
+  width:6px;
+  height:6px;
+  margin-right:7px;
+  flex:none;
+  border-radius:50%;
+  background:#bd795c;
+  opacity:0;
+}
+.header nav a[aria-current="page"]::before {
+  opacity:1;
+}
 .eyebrow {
   font-size:10px;
   letter-spacing:.16em;
@@ -80,7 +93,7 @@ button {
   color:#887b6c;
   text-transform:uppercase;
 }
-.section-heading h1,.section h2,.detail h1 {
+.section h2,.detail h1 {
   font-family:"Playfair Display",serif;
   font-weight:500;
   letter-spacing:-.045em;
@@ -101,13 +114,7 @@ button {
 .section {
   padding:70px 9%;
 }
-.section-heading {
-  display:flex;
-  align-items:end;
-  justify-content:space-between;
-  margin-bottom:45px;
-}
-.section-heading h1,.about h2,.contact h2 {
+.about h2,.contact h2 {
   font-size:clamp(42px,5vw,72px);
   margin:15px 0;
 }
@@ -335,9 +342,6 @@ footer {
   .section {
     padding:48px 7%;
   }
-  .section-heading {
-    display:block;
-  }
   .project-grid,.about {
     grid-template-columns:1fr;
     gap:40px;
@@ -386,7 +390,6 @@ footer {
   font-size:clamp(50px,6vw,82px);
   letter-spacing:-.04em;
   font-weight:500;
-  max-width:900px;
 }
 .content-page h1 em {
   color:#9a755f;
@@ -684,9 +687,6 @@ footer {
     font-size:12px;
     padding:10px 12px;
   }
-  .section-heading {
-    margin-bottom:32px;
-  }
 }
 /* Keep headings and navigation usable at small phone widths. */
 .admin h1 {
@@ -948,7 +948,7 @@ footer {
   color:#fff;
   padding:16px 20px;
 }
-.properties-page .category-filters {
+.properties-page .category-filters,.projects-page .category-filters {
   margin-top:40px;
 }
 .enquiry-context {

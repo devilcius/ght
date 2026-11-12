@@ -9,9 +9,11 @@ const errors = [];
 page.on('pageerror', error => errors.push(error.message));
 try {
   await page.goto(`${base}/`);
+  assert.equal(await page.locator('header nav a[aria-current="page"]').getAttribute('href'),'/#proyectos');
   await page.evaluate(() => { window.navigationMarker = 'same-document'; document.querySelector('.header').dataset.marker = 'stable'; });
   await page.locator('header a[href="/estudio"]').click();
   await page.waitForURL(`${base}/estudio`);
+  assert.equal(await page.locator('header nav a[aria-current="page"]').getAttribute('href'),'/estudio');
   assert.equal(await page.evaluate(() => window.navigationMarker),'same-document');
   assert.equal(await page.locator('.header').getAttribute('data-marker'),'stable');
   assert.match(await page.title(), /El estudio/);
@@ -27,6 +29,7 @@ try {
   const contactLink = await page.locator('header a[href="/contacto"]').boundingBox();
   await page.mouse.click(contactLink.x + contactLink.width / 2, contactLink.y + contactLink.height / 2);
   await page.waitForURL(`${base}/contacto`);
+  assert.equal(await page.locator('header nav a[aria-current="page"]').getAttribute('href'),'/contacto');
   await page.locator('#contact-form [name=name]').fill('Prueba');
   await page.locator('#contact-form [name=email]').fill('test@example.com');
   await page.locator('#contact-form [name=message]').fill('Mensaje de prueba para el formulario.');
@@ -36,6 +39,7 @@ try {
   await page.goBack();
   await page.waitForURL(`${base}/estudio`);
   await page.locator('h1').filter({hasText:'Sobre nuestro'}).waitFor();
+  assert.equal(await page.locator('header nav a[aria-current="page"]').getAttribute('href'),'/estudio');
   assert.ok(Math.abs(await page.evaluate(() => window.scrollY) - studioScroll) < 30,
     `Expected scroll ${studioScroll}; got ${await page.evaluate(() => window.scrollY)}`);
   await page.goForward();
@@ -52,6 +56,7 @@ try {
   await page.waitForURL(`${base}/#proyectos`);
   await page.locator('a.project[href="/proyectos/browser-gallery"]').click();
   await page.waitForURL(`${base}/proyectos/browser-gallery`);
+  assert.equal(await page.locator('header nav a[aria-current="page"]').getAttribute('href'),'/#proyectos');
   await page.locator('.project-gallery-item').first().click();
   assert.equal(await page.locator('.gallery-viewer').evaluate(element => element.open),true);
   await page.locator('.gallery-viewer-close').click();
@@ -193,6 +198,7 @@ try {
   await page.getByRole('button', {name:'Guardar inmueble'}).click();
   await page.locator('#notice').filter({hasText:'Inmueble guardado.'}).waitFor();
   await page.goto(`${base}/inmobiliaria/piso-de-alamo`);
+  assert.equal(await page.locator('header nav a[aria-current="page"]').getAttribute('href'),'/inmobiliaria');
   assert.equal(await page.locator('h1').textContent(),'Piso reformado');
   assert.equal(await page.locator('.description strong').textContent(),'luminoso');
   assert.equal(await page.locator('.project-gallery-item').count(),3);
@@ -264,6 +270,7 @@ try {
   await staticPage.goto(`${base}/`);
   await staticPage.locator('header a[href="/estudio"]').click();
   assert.equal(new URL(staticPage.url()).pathname,'/estudio');
+  assert.equal(await staticPage.locator('header nav a[aria-current="page"]').getAttribute('href'),'/estudio');
   assert.match(await staticPage.locator('h1').innerText(),/Sobre nuestro/);
   await noJs.close();
   console.log('Browser smoke passed: admin tabs and gallery navigation.');

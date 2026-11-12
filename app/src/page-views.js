@@ -7,12 +7,11 @@ import {renderMarkdown, markdownText} from './markdown.js';
 
 export function renderHome({filters, list, content, origin, indexable, selectedCategory}) {
   return html(layout('Arquitectura y urbanismo', `<main>
-      <section class="section" id="proyectos">
-      <div class="section-heading">
-      <div>
-      <h1>Proyectos<span class="dot">.</span></h1>
-      </div>
-      </div>${filters}<p class="project-count">${list.length} ${list.length === 1 ? 'proyecto' : 'proyectos'}</p>
+      <section class="section content-page projects-page" id="proyectos">
+      <p class="eyebrow">GHT / PROYECTOS</p>
+      <h1>Proyectos que <em>toman forma.</em></h1>
+      <p>Descubre una selección de nuestros proyectos de arquitectura y urbanismo.</p>
+      ${filters}<p class="project-count">${list.length} ${list.length === 1 ? 'proyecto' : 'proyectos'}</p>
       <div class="project-grid">${list.map(card).join('') || '<p>No hay proyectos en esta categoría.</p>'}</div>
       </section>
       <section class="about section" id="estudio">

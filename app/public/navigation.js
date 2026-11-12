@@ -38,6 +38,12 @@ if (publicPath(location.pathname) && document.querySelector('main')) {
     const selector = 'meta[name="description"], meta[name="robots"], meta[property^="og:"], meta[name^="twitter:"], link[rel="canonical"]';
     document.head.querySelectorAll(selector).forEach(node => node.remove());
     next.head.querySelectorAll(selector).forEach(node => document.head.append(document.importNode(node, true)));
+    const nextLinks = [...next.querySelectorAll('header nav a')];
+    document.querySelectorAll('header nav a').forEach(link => {
+      const match = nextLinks.find(item => item.getAttribute('href') === link.getAttribute('href'));
+      if (match?.getAttribute('aria-current') === 'page') link.setAttribute('aria-current', 'page');
+      else link.removeAttribute('aria-current');
+    });
   }
 
   async function initializePage() {
