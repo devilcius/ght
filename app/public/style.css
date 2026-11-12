@@ -1073,3 +1073,7 @@ footer {
 .site-image-actions { display:flex; gap:8px; flex-wrap:wrap; margin:10px 0; }
 .site-image-editor small { color:#62655d; }
 @media(max-width:600px) { .site-image-editor { grid-template-columns:1fr; } }
+
+.content-save { display:flex; align-items:center; flex-wrap:wrap; gap:14px; margin-top:24px; }
+.content-save-status,.site-image-status { color:#62655d; font-size:13px; line-height:1.5; }
+.site-image-status { margin:8px 0 0; }

@@ -115,16 +115,52 @@ try {
     canvas.getContext('2d').fillRect(0, 0, 20, 20);
     return canvas.toDataURL('image/png').split(',')[1];
   }), 'base64');
+  const contentSave = page.locator('#content-form button[type=submit]');
+  assert.equal(await contentSave.isDisabled(), true);
   await page.locator('[name=studio_intro]').fill('Texto sin guardar');
+  assert.equal(await contentSave.isEnabled(), true);
+  let releaseStudioUpload, studioUploadStarted;
+  const waitingStudioUpload = new Promise(resolve => { studioUploadStarted = resolve; });
+  const delayedStudioUpload = new Promise(resolve => { releaseStudioUpload = resolve; });
+  await page.route('**/api/admin/content/images/team_1', async route => {
+    if (route.request().method() === 'POST') { studioUploadStarted(); await delayedStudioUpload; }
+    await route.continue();
+  });
   await page.locator('[data-site-file=team_1]').setInputFiles({name:'portrait.png',mimeType:'image/png',buffer:studioPng});
   await page.locator('[data-site-upload=team_1]').click();
+  await waitingStudioUpload;
+  assert.equal(await page.locator('[data-site-upload=team_1]').isDisabled(), true);
+  assert.equal(await page.locator('[data-site-upload=team_1]').textContent(), 'Subiendo imagen…');
+  releaseStudioUpload();
   await page.locator('#notice').filter({hasText:'Imagen actualizada.'}).waitFor();
+  assert.match(await page.locator('[data-site-image=team_1] [role=status]').textContent(), /Imagen guardada/);
+  await page.unroute('**/api/admin/content/images/team_1');
   assert.equal(await page.locator('[name=studio_intro]').inputValue(), 'Texto sin guardar');
   assert.match(await page.locator('[data-site-image=team_1] img').getAttribute('src'), /\/media\//);
   await page.locator('[data-site-reset=team_1]').click();
   await page.locator('#notice').filter({hasText:'Imagen restablecida.'}).waitFor();
   assert.equal(await page.locator('[name=studio_intro]').inputValue(), 'Texto sin guardar');
   assert.equal(await page.locator('[data-site-image=team_1] img').getAttribute('src'), '/brand/team-placeholder.svg');
+  let releaseContentSave, contentSaveStarted;
+  const waitingContentSave = new Promise(resolve => { contentSaveStarted = resolve; });
+  const delayedContentSave = new Promise(resolve => { releaseContentSave = resolve; });
+  await page.route('**/api/admin/content', async route => {
+    if (route.request().method() === 'PUT') { contentSaveStarted(); await delayedContentSave; }
+    await route.continue();
+  });
+  await contentSave.click();
+  await waitingContentSave;
+  assert.equal(await contentSave.isDisabled(), true);
+  assert.equal(await contentSave.textContent(), 'Guardando…');
+  await page.locator('[name=studio_intro]').fill('Otro texto sin guardar');
+  releaseContentSave();
+  await page.locator('#notice').filter({hasText:'Contenido guardado.'}).waitFor();
+  assert.equal(await contentSave.isEnabled(), true);
+  assert.match(await page.locator('.content-save-status').textContent(), /sin guardar/);
+  await page.unroute('**/api/admin/content');
+  await contentSave.click();
+  await page.locator('.content-save-status').filter({hasText:'Cambios guardados.'}).waitFor();
+  assert.equal(await contentSave.isDisabled(), true);
   await page.locator('#tab-projects').click();
   assert.equal(new URL(page.url()).pathname,'/admin/proyectos');
   await page.reload();
