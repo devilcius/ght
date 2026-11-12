@@ -1,3 +1,4 @@
+import { siteImageApi } from "./site-images.js";
 import { isAdmin } from "./auth.js";
 import { uploadVariant } from "./image-variants.js";
 import { propertyApi } from "./property.js";
@@ -17,6 +18,8 @@ async function adminApi(request, env, path) {
       console.error("Media cleanup pending", error);
     }
   }
+  const siteImageMatch = path.match(/^\/api\/admin\/content\/images\/(studio|team_[1-4])$/);
+  if (siteImageMatch) return await siteImageApi(request, env, siteImageMatch[1]);
   const variantMatch = path.match(/^\/api\/admin\/(projects|properties)\/([\w-]+)\/images\/([\w-]+)\/variants\/(\d+)$/);
   if (variantMatch) return request.method === "PUT" ? await uploadVariant(request, env, variantMatch[1], variantMatch[2], variantMatch[3], variantMatch[4]) : json({ error: "Método no permitido" }, 405);
   if (path === "/api/admin/properties" || path.startsWith("/api/admin/properties/")) return await propertyApi(request, env, path);

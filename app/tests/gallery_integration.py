@@ -94,6 +94,43 @@ class GalleryIntegrationTests(unittest.TestCase):
             self.worker.kill()
             self.worker.wait()
 
+    def test_studio_images_are_editable_and_public(self):
+        admin, public = self.admin, self.public
+        path = '/api/admin/content/images/team_1'
+        page = call(public, '/estudio')[1]
+        assert b'/brand/estudio.jpg' in page and b'/brand/team-placeholder.svg' in page
+        assert call(public, path, 'DELETE')[0] == 401
+        assert call(admin, path, 'POST', b'invalid', 'application/octet-stream', origin='http://evil.test')[0] == 403
+
+        def send_image(image=PNG, optimized=WEBP):
+            boundary = uuid.uuid4().hex
+            body = (f'--{boundary}\r\nContent-Disposition: form-data; name="file"; filename="x.png"\r\nContent-Type: image/png\r\n\r\n').encode() + image
+            if optimized:
+                body += (f'\r\n--{boundary}\r\nContent-Disposition: form-data; name="optimized"; filename="x.webp"\r\nContent-Type: image/webp\r\n\r\n').encode() + optimized
+            body += f'\r\n--{boundary}--\r\n'.encode()
+            return call(admin, path, 'POST', body, f'multipart/form-data; boundary={boundary}')
+
+        assert send_image(optimized=b'invalid image')[0] == 400
+        status, data, _ = send_image()
+        assert status == 200, data
+        first = json.loads(data)
+        assert call(public, '/media/' + first['objectKey'])[0] == 200
+        assert call(public, '/media/' + first['displayKey'])[0] == 200
+        assert first['displayKey'].encode() in call(public, '/estudio')[1]
+        content = json.loads(call(admin, '/api/admin/content')[1])
+        assert content['team_1_image_key'] == first['objectKey']
+        assert send_json(admin, '/api/admin/content', 'PUT', content)[0] == 200
+        assert first['displayKey'].encode() in call(public, '/estudio')[1]
+        status, data, _ = send_image(optimized=None)
+        assert status == 200, data
+        second = json.loads(data)
+        assert call(public, '/media/' + first['objectKey'])[0] == 404
+        assert call(public, '/media/' + first['displayKey'])[0] == 404
+        assert call(public, '/media/' + second['objectKey'])[0] == 200
+        assert call(admin, path, 'DELETE')[0] == 200
+        assert call(public, '/media/' + second['objectKey'])[0] == 404
+        assert b'/brand/team-placeholder.svg' in call(public, '/estudio')[1]
+
     def test_project_gallery_publication_and_media_access(self):
         admin, public, admin_port = self.admin, self.public, self.port
         for route in ('/admin', '/admin/proyectos', '/admin/inmobiliaria', '/admin/estudio'):

@@ -57,3 +57,22 @@ export {
   retryVariants,
   uploadPhotos
 };
+
+// Studio images retain the original and use one reasonably sized display copy.
+export async function optimizeSiteImage(file) {
+  const bitmap = await createImageBitmap(file, {imageOrientation: 'from-image'});
+  try {
+    const scale = Math.min(1, 1600 / Math.max(bitmap.width, bitmap.height));
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+    canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+    const context = canvas.getContext('2d');
+    if (!context) throw new Error('No se pudo procesar la imagen.');
+    context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+    for (const quality of [0.8, 0.65, 0.5]) {
+      const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/webp', quality));
+      if (blob?.type === 'image/webp' && blob.size <= 2 * 1024 * 1024) return blob;
+    }
+    throw new Error('No se pudo optimizar la imagen.');
+  } finally { bitmap.close(); }
+}

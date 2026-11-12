@@ -110,6 +110,21 @@ try {
   assert.equal(await page.locator('#content-form').count(),1);
   assert.equal(new URL(page.url()).pathname,'/admin/estudio');
   await page.unroute(propertyRoute);
+  const studioPng = Buffer.from(await page.evaluate(() => {
+    const canvas = document.createElement('canvas'); canvas.width = 20; canvas.height = 20;
+    canvas.getContext('2d').fillRect(0, 0, 20, 20);
+    return canvas.toDataURL('image/png').split(',')[1];
+  }), 'base64');
+  await page.locator('[name=studio_intro]').fill('Texto sin guardar');
+  await page.locator('[data-site-file=team_1]').setInputFiles({name:'portrait.png',mimeType:'image/png',buffer:studioPng});
+  await page.locator('[data-site-upload=team_1]').click();
+  await page.locator('#notice').filter({hasText:'Imagen actualizada.'}).waitFor();
+  assert.equal(await page.locator('[name=studio_intro]').inputValue(), 'Texto sin guardar');
+  assert.match(await page.locator('[data-site-image=team_1] img').getAttribute('src'), /\/media\//);
+  await page.locator('[data-site-reset=team_1]').click();
+  await page.locator('#notice').filter({hasText:'Imagen restablecida.'}).waitFor();
+  assert.equal(await page.locator('[name=studio_intro]').inputValue(), 'Texto sin guardar');
+  assert.equal(await page.locator('[data-site-image=team_1] img').getAttribute('src'), '/brand/team-placeholder.svg');
   await page.locator('#tab-projects').click();
   assert.equal(new URL(page.url()).pathname,'/admin/proyectos');
   await page.reload();

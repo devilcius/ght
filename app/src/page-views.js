@@ -30,11 +30,11 @@ export function renderHome({filters, list, content, origin, indexable, selectedC
     </main>`,{canonical:origin+'/',description:siteDescription,index:indexable && !selectedCategory}));
 }
 
-export function renderStudio({team, content, origin, indexable}) {
+export function renderStudio({team, content, studioImage, origin, indexable}) {
   return html(layout('El estudio', `<main class="section content-page">
       <p class="eyebrow">GHT / EL ESTUDIO</p>
       <h1>Sobre nuestro <em>estudio.</em></h1>
-      <div class="content-intro">${paragraphs(content.studio_intro)}</div>
+      <div class="studio-overview"><div class="content-intro">${paragraphs(content.studio_intro)}</div><figure class="studio-photo"><img src="${e(studioImage)}" alt="Proyecto de arquitectura de GHT" decoding="async"></figure></div>
       <section class="team">
       <p class="eyebrow">LAS PERSONAS DETRÁS DE GHT</p>
       <h2>Nuestro equipo<span class="dot">.</span></h2>

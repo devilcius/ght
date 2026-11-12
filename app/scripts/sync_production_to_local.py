@@ -31,6 +31,7 @@ KEY_QUERIES = (
     'SELECT object_key FROM property_images',
     'SELECT thumbnail_key FROM property_images WHERE thumbnail_key IS NOT NULL',
     'SELECT object_key FROM property_image_variants',
+    "SELECT value FROM site_content WHERE key IN ('studio_image_key','studio_image_variant_key','team_1_image_key','team_1_image_variant_key','team_2_image_key','team_2_image_variant_key','team_3_image_key','team_3_image_variant_key','team_4_image_key','team_4_image_variant_key')",
 )
 
 

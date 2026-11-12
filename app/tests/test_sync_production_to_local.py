@@ -78,6 +78,7 @@ CREATE INDEX image_parent ON image(parent_id);
             with sqlite3.connect(folder/'data.sqlite') as db:
                 db.executescript('''
                     CREATE TABLE projects(id TEXT);
+                    CREATE TABLE site_content(key TEXT,value TEXT);
                     CREATE TABLE properties(id TEXT);
                     CREATE TABLE d1_migrations(id INTEGER);
                     CREATE TABLE project_images(object_key TEXT,thumbnail_key TEXT);
@@ -88,10 +89,13 @@ CREATE INDEX image_parent ON image(parent_id);
                     INSERT INTO project_image_variants VALUES('project-variant');
                     INSERT INTO property_images VALUES('property-original','property-thumb');
                     INSERT INTO property_image_variants VALUES('property-variant');
+                    INSERT INTO site_content VALUES('studio_image_key','studio-original');
+                    INSERT INTO site_content VALUES('team_1_image_variant_key','team-variant');
+                    INSERT INTO site_content VALUES('studio_intro','not-a-media-key');
                 ''')
             keys, counts = sync.inspect_database(state)
             self.assertEqual(set(keys), {'project-original','project-thumb','project-variant',
-                                         'property-original','property-thumb','property-variant'})
+                                         'property-original','property-thumb','property-variant','studio-original','team-variant'})
             self.assertEqual(counts['project_images'], 1)
             self.assertEqual(counts['property_images'], 1)
 
