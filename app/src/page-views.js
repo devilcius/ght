@@ -43,7 +43,7 @@ export function renderStudio({team, content, studioImage, origin, indexable}) {
     </main>`,{canonical:origin+'/estudio',description:'Conoce la trayectoria y el equipo de GHT Arquitectura y Urbanismo en Madrid.',index:indexable}));
 }
 
-export function renderContact({content, enquiry, origin, indexable}) {
+export function renderContact({content, enquiry, origin, indexable, local, siteKey}) {
   return html(layout('Contacto', `<main class="section content-page">
       <p class="eyebrow">GHT / CONTACTO</p>
       <h1>Hablemos de tu <em>proyecto.</em></h1>
@@ -65,11 +65,11 @@ export function renderContact({content, enquiry, origin, indexable}) {
       <h2 id="form-heading">Cuéntanos tu idea<span class="dot">.</span></h2>
       <p>Escríbenos y nos pondremos en contacto contigo.</p>
       </div>
-      <form id="contact-form" class="contact-form">${enquiry}<div class="contact-fields"><label for="contact-name">Nombre</label><input id="contact-name" name="name" autocomplete="name" required minlength="2" maxlength="120"><label for="contact-email">Correo electrónico</label><input id="contact-email" name="email" type="email" autocomplete="email" required maxlength="254"><label for="contact-message">Mensaje</label><textarea id="contact-message" name="message" required minlength="10" maxlength="5000" rows="7"></textarea>
+      <form id="contact-form" class="contact-form" data-turnstile-mode="${local ? 'local' : 'live'}" data-turnstile-site-key="${e(siteKey)}">${enquiry}<div class="contact-fields"><label for="contact-name">Nombre</label><input id="contact-name" name="name" autocomplete="name" required minlength="2" maxlength="120"><label for="contact-email">Correo electrónico</label><input id="contact-email" name="email" type="email" autocomplete="email" required maxlength="254"><label for="contact-message">Mensaje</label><textarea id="contact-message" name="message" required minlength="10" maxlength="5000" rows="7"></textarea>
       </div>
       <div class="contact-honeypot" aria-hidden="true"><label for="contact-website">Sitio web</label><input id="contact-website" name="website" type="text" tabindex="-1" autocomplete="off">
       </div><label class="contact-consent"><input type="checkbox" name="consent" required><span>Acepto que GHT utilice mis datos para responder a mi consulta.</span></label>
-      <button type="submit">Enviar mensaje <span aria-hidden="true">↗</span></button><p id="contact-status" role="status" aria-live="polite" tabindex="-1"></p><noscript>
+      <div class="contact-verification" id="contact-verification"></div><button type="button" id="contact-verification-retry" class="contact-verification-retry" hidden>Reintentar verificación</button><button type="submit">Enviar mensaje <span aria-hidden="true">↗</span></button><p id="contact-status" role="status" aria-live="polite" tabindex="-1"></p><noscript>
       <p>Para enviar este formulario necesitas activar JavaScript. También puedes escribirnos al correo indicado arriba.</p></noscript>
       </form>
       </section>

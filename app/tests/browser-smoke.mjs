@@ -337,7 +337,46 @@ try {
   assert.equal(await staticPage.locator('header nav a[aria-current="page"]').getAttribute('href'),'/estudio');
   assert.match(await staticPage.locator('h1').innerText(),/Sobre nuestro/);
   await noJs.close();
-  console.log('Browser smoke passed: admin tabs and gallery navigation.');
+
+  // Exercise the live widget lifecycle with a deterministic stand-in, including SPA navigation.
+  const challengePage = await browser.newPage();
+  await challengePage.addInitScript(() => {
+    window.widgetRenders = 0; window.widgetResets = 0;
+    window.turnstile = {
+      render(_container, options) { window.widgetRenders++; window.challengeOptions = options; return 'widget'; },
+      reset() { window.widgetResets++; }, remove() {}
+    };
+  });
+  await challengePage.route('**/contacto', async route => {
+    const response = await route.fetch();
+    const body = (await response.text()).replace('data-turnstile-mode="local"', 'data-turnstile-mode="live"').replace('data-turnstile-site-key=""', 'data-turnstile-site-key="test-site-key"');
+    await route.fulfill({response, body});
+  });
+  await challengePage.goto(`${base}/contacto`);
+  await challengePage.waitForFunction(() => window.widgetRenders === 1);
+  await challengePage.locator('#contact-form [name=name]').fill('Prueba');
+  await challengePage.locator('#contact-form [name=email]').fill('test@example.com');
+  await challengePage.locator('#contact-form [name=message]').fill('Mensaje de prueba para el formulario.');
+  await challengePage.locator('#contact-form [name=consent]').check();
+  await challengePage.locator('#contact-form button[type=submit]').click();
+  await challengePage.locator('#contact-status').filter({hasText:'Completa la verificación'}).waitFor();
+  await challengePage.evaluate(() => window.challengeOptions.callback('first-token'));
+  await challengePage.route('**/api/contact', route => route.fulfill({status:503,contentType:'application/json',body:JSON.stringify({error:'Error de prueba'})}), {times:1});
+  await challengePage.locator('#contact-form button[type=submit]').click();
+  await challengePage.locator('#contact-status').filter({hasText:'Error de prueba'}).waitFor();
+  assert.equal(await challengePage.locator('#contact-form [name=message]').inputValue(), 'Mensaje de prueba para el formulario.');
+  assert.equal(await challengePage.evaluate(() => window.widgetResets), 1);
+  await challengePage.evaluate(() => window.challengeOptions.callback('second-token'));
+  await challengePage.locator('#contact-form button[type=submit]').click();
+  await challengePage.locator('#contact-status').filter({hasText:'Formulario de prueba'}).waitFor();
+  assert.equal(await challengePage.evaluate(() => window.widgetResets), 2);
+  await challengePage.locator('header a[href="/estudio"]').click();
+  await challengePage.waitForURL(`${base}/estudio`);
+  await challengePage.locator('header a[href="/contacto"]').click();
+  await challengePage.waitForURL(`${base}/contacto`);
+  await challengePage.waitForFunction(() => window.widgetRenders === 2);
+  await challengePage.close();
+  console.log('Browser smoke passed: contact verification, admin tabs and gallery navigation.');
 } finally {
   await browser.close();
 }

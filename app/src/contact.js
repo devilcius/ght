@@ -19,6 +19,16 @@ export async function handleContact(request, env, send = fetch) {
   if (request.method !== 'POST') return response({error:'Método no permitido.'},405);
   if (request.headers.get('Origin') !== new URL(request.url).origin) return response({error:'Origen no permitido.'},403);
   if (!/^application\/json(?:\s*;|$)/i.test(request.headers.get('Content-Type') || '')) return response({error:'Formato no válido.'},415);
+  const url = new URL(request.url);
+  const local = env.LOCAL_DEVELOPMENT === 'true' && ['localhost','127.0.0.1','[::1]'].includes(url.hostname);
+  if (!local) {
+    if (!env.CONTACT_RATE_LIMITER) return response({error:'El formulario no está disponible en este momento. Puedes escribirnos por correo.'},503);
+    try {
+      const ip = request.headers.get('CF-Connecting-IP') || 'unknown';
+      const limit = await env.CONTACT_RATE_LIMITER.limit({key:ip});
+      if (!limit.success) return response({error:'Has enviado demasiadas solicitudes. Espera un minuto y vuelve a intentarlo.'},429);
+    } catch { return response({error:'El formulario no está disponible en este momento. Puedes escribirnos por correo.'},503); }
+  }
   if (Number(request.headers.get('Content-Length') || 0) > 16384) return response({error:'El mensaje es demasiado largo.'},413);
   let data;
   try {
@@ -35,8 +45,21 @@ export async function handleContact(request, env, send = fetch) {
     property = await env.DB.prepare('SELECT title,slug FROM properties WHERE slug=? AND published=1').bind(data.propertySlug).first();
     if (!property) return response({error:'Este inmueble ya no está disponible. Contacta con nosotros para más información.'},400);
   }
-  const url = new URL(request.url);
-  if (env.LOCAL_DEVELOPMENT === 'true' && ['localhost','127.0.0.1','[::1]'].includes(url.hostname)) return response({ok:true,simulated:true});
+  const testTurnstile = local && env.LOCAL_TURNSTILE_TEST === 'true';
+  if (local && !testTurnstile) return response({ok:true,simulated:true});
+  if (!testTurnstile && (!env.TURNSTILE_SITE_KEY || !env.TURNSTILE_SECRET_KEY)) return response({error:'El formulario no está disponible en este momento. Puedes escribirnos por correo.'},503);
+  if (typeof data.turnstileToken !== 'string' || !data.turnstileToken || data.turnstileToken.length > 2048) return response({error:'Completa la verificación de seguridad e inténtalo de nuevo.'},400);
+  try {
+    const verification = await send('https://challenges.cloudflare.com/turnstile/v0/siteverify', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({secret:testTurnstile ? '1x0000000000000000000000000000000AA' : env.TURNSTILE_SECRET_KEY, response:data.turnstileToken, remoteip:request.headers.get('CF-Connecting-IP') || undefined}),
+      signal:AbortSignal.timeout(10000)
+    });
+    if (!verification.ok) throw new Error('Verification unavailable');
+    const result = await verification.json();
+    if (!result.success || (testTurnstile ? result.hostname !== 'example.com' : result.hostname !== url.hostname || result.action !== 'contact')) return response({error:'No se ha podido verificar la solicitud. Inténtalo de nuevo.'},400);
+  } catch { return response({error:'La verificación de seguridad no está disponible. Inténtalo de nuevo o escríbenos por correo.'},503); }
+  if (local) return response({ok:true,simulated:true});
   if (!env.RESEND_API_KEY || !env.CONTACT_FROM_EMAIL || !env.CONTACT_TO_EMAIL) return response({error:'El formulario no está disponible en este momento. Puedes escribirnos por correo.'},503);
   try {
     const result = await send('https://api.resend.com/emails',{

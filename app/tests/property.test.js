@@ -15,8 +15,8 @@ test('generates readable property slugs and handles accents or symbol-only title
  assert.ok(propertySlug('á'.repeat(180)).length <= 170);
 });
 test('property enquiry includes the verified listing in delivery',async()=>{
- const body={name:'Persona',email:'hello@example.com',message:'Quiero saber más sobre este inmueble.',consent:true,propertySlug:'piso-madrid'};
+ const body={name:'Persona',email:'hello@example.com',message:'Quiero saber más sobre este inmueble.',consent:true,propertySlug:'piso-madrid',turnstileToken:'valid-token'};
  const req=new Request('https://ght.example/api/contact',{method:'POST',headers:{Origin:'https://ght.example','Content-Type':'application/json'},body:JSON.stringify(body)});
- const env={RESEND_API_KEY:'test',CONTACT_FROM_EMAIL:'from@example.com',CONTACT_TO_EMAIL:'to@example.com',DB:{prepare:()=>({bind:()=>({first:async()=>({title:'Piso en Madrid',slug:'piso-madrid'})})})}};
- let sent;const response=await handleContact(req,env,async(_url,opts)=>{sent=JSON.parse(opts.body);return new Response('{}',{status:200});});assert.equal(response.status,200);assert.match(sent.text,/Inmueble: Piso en Madrid \(piso-madrid\)/);
+ const env={TURNSTILE_SITE_KEY:'site',TURNSTILE_SECRET_KEY:'secret',CONTACT_RATE_LIMITER:{limit:async()=>({success:true})},RESEND_API_KEY:'test',CONTACT_FROM_EMAIL:'from@example.com',CONTACT_TO_EMAIL:'to@example.com',DB:{prepare:()=>({bind:()=>({first:async()=>({title:'Piso en Madrid',slug:'piso-madrid'})})})}};
+ let sent;const response=await handleContact(req,env,async(url,opts)=>{if(url.includes('/siteverify'))return Response.json({success:true,hostname:'ght.example',action:'contact'});sent=JSON.parse(opts.body);return new Response('{}',{status:200});});assert.equal(response.status,200);assert.match(sent.text,/Inmueble: Piso en Madrid \(piso-madrid\)/);
 });

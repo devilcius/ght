@@ -6,5 +6,6 @@
   "compatibility_date": "2026-02-10",
   "assets": {"directory": "./public", "binding": "ASSETS", "run_worker_first": true},
   "d1_databases": [{"binding": "DB", "database_name": "ght", "database_id": "9f00784f-4056-465b-803a-128dbf32881f", "migrations_dir": "migrations"}],
+  "ratelimits": [{"name": "CONTACT_RATE_LIMITER", "namespace_id": "70914621", "simple": {"limit": 5, "period": 60}}],
   "r2_buckets": [{"binding": "MEDIA", "bucket_name": "ght-media"}]
 }
