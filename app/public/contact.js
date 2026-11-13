@@ -21,6 +21,16 @@ export function initContact() {
   form.dataset.initialized = 'true';
   const local = form.dataset.turnstileMode === 'local';
   const retry = form.querySelector('#contact-verification-retry');
+  const type = form.querySelector('[name=enquiryType]');
+  const consent = form.querySelector('[name=consent]');
+  const submit = form.querySelector('button[type="submit"]');
+  const syncSubmit = () => { submit.disabled = !consent.checked || Boolean(form.dataset.sending); };
+  consent.addEventListener('change', syncSubmit);
+  syncSubmit();
+  const propertyContext = form.querySelector('#property-context');
+  const syncProperty = () => { if (propertyContext) propertyContext.hidden = type.value !== 'real-estate'; };
+  type.addEventListener('change', syncProperty);
+  syncProperty();
   let token = '', widgetId = null, turnstile;
   const showVerificationError = () => {
     if (!form.isConnected) return;
@@ -60,10 +70,9 @@ export function initContact() {
       status.focus({preventScroll:true});
       return;
     }
-    const submit = form.querySelector('button[type="submit"]');
     const buttonContent = submit.innerHTML;
     const data = new FormData(form);
-    const controls = [...form.querySelectorAll('input, textarea, button')].filter(control => !control.disabled);
+    const controls = [...form.querySelectorAll('input, textarea, select, button')].filter(control => !control.disabled);
     controls.forEach(control => { control.disabled = true; });
     form.dataset.sending = 'true';
     form.setAttribute('aria-busy', 'true');
@@ -71,10 +80,11 @@ export function initContact() {
     status.dataset.state = 'sending';
     status.textContent = 'Estamos enviando tu mensaje. Un momento, por favor.';
     try {
-      const response = await fetch('/api/contact', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:data.get('name'),email:data.get('email'),message:data.get('message'),website:data.get('website'),propertySlug:data.get('propertySlug') || '',consent:data.get('consent') === 'on',turnstileToken:token})});
+      const response = await fetch('/api/contact', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({enquiryType:data.get('enquiryType'),name:data.get('name'),email:data.get('email'),message:data.get('message'),website:data.get('website'),propertySlug:data.get('enquiryType') === 'real-estate' ? data.get('propertySlug') || '' : '',consent:data.get('consent') === 'on',turnstileToken:token})});
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || 'No se ha podido enviar el mensaje.');
       form.reset();
+      syncProperty();
       status.dataset.state = 'success';
       status.textContent = result.simulated ? 'Formulario de prueba: no se ha enviado ningún mensaje.' : 'Tu mensaje se ha enviado. Gracias por contactar con nosotros.';
     } catch (error) {
@@ -87,6 +97,7 @@ export function initContact() {
       }
       controls.forEach(control => { control.disabled = false; });
       delete form.dataset.sending;
+      syncSubmit();
       form.removeAttribute('aria-busy');
       submit.innerHTML = buttonContent;
       if (status.isConnected) status.focus({preventScroll:true});

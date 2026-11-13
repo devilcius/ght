@@ -880,7 +880,7 @@ footer {
   font-weight:600;
   margin-top:12px;
 }
-.contact-fields input,.contact-fields textarea {
+.contact-fields input,.contact-fields select,.contact-fields textarea {
   width:100%;
   border:1px solid #c6c7bd;
   background:#fff;
@@ -925,8 +925,9 @@ footer {
 }
 .contact-form button:disabled {
   opacity:.6;
-  cursor:wait;
+  cursor:not-allowed;
 }
+.contact-form[aria-busy="true"] button:disabled { cursor:wait; }
 .contact-honeypot {
   position:absolute;
   left:-10000px;

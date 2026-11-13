@@ -30,9 +30,15 @@ try {
   await page.mouse.click(contactLink.x + contactLink.width / 2, contactLink.y + contactLink.height / 2);
   await page.waitForURL(`${base}/contacto`);
   assert.equal(await page.locator('header nav a[aria-current="page"]').getAttribute('href'),'/contacto');
+  await page.locator('#contact-form [name=enquiryType]').selectOption('project');
   await page.locator('#contact-form [name=name]').fill('Prueba');
   await page.locator('#contact-form [name=email]').fill('test@example.com');
   await page.locator('#contact-form [name=message]').fill('Mensaje de prueba para el formulario.');
+  assert.equal(await page.locator('#contact-form button[type=submit]').isDisabled(), true);
+  await page.locator('#contact-form [name=consent]').check();
+  assert.equal(await page.locator('#contact-form button[type=submit]').isEnabled(), true);
+  await page.locator('#contact-form [name=consent]').uncheck();
+  assert.equal(await page.locator('#contact-form button[type=submit]').isDisabled(), true);
   await page.locator('#contact-form [name=consent]').check();
   let releaseContact, contactStarted;
   const contactWaiting = new Promise(resolve => { contactStarted = resolve; });
@@ -47,7 +53,7 @@ try {
   releaseContact();
   await page.locator('#contact-status').filter({hasText:'Formulario de prueba'}).waitFor();
   assert.equal(await page.locator('#contact-status').getAttribute('data-state'), 'success');
-  assert.equal(await page.locator('#contact-form button[type=submit]').isEnabled(), true);
+  assert.equal(await page.locator('#contact-form button[type=submit]').isDisabled(), true);
   await page.unroute('**/api/contact');
   await page.goBack();
   await page.waitForURL(`${base}/estudio`);
@@ -58,6 +64,7 @@ try {
   await page.goForward();
   await page.waitForURL(`${base}/contacto`);
   await page.locator('#contact-form').waitFor();
+  await page.locator('#contact-form [name=enquiryType]').selectOption('real-estate');
   await page.locator('#contact-form [name=name]').fill('Prueba otra vez');
   await page.locator('#contact-form [name=email]').fill('test@example.com');
   await page.locator('#contact-form [name=message]').fill('Otro mensaje para el formulario.');
@@ -354,6 +361,7 @@ try {
   });
   await challengePage.goto(`${base}/contacto`);
   await challengePage.waitForFunction(() => window.widgetRenders === 1);
+  await challengePage.locator('#contact-form [name=enquiryType]').selectOption('project');
   await challengePage.locator('#contact-form [name=name]').fill('Prueba');
   await challengePage.locator('#contact-form [name=email]').fill('test@example.com');
   await challengePage.locator('#contact-form [name=message]').fill('Mensaje de prueba para el formulario.');
@@ -365,6 +373,7 @@ try {
   await challengePage.locator('#contact-form button[type=submit]').click();
   await challengePage.locator('#contact-status').filter({hasText:'Error de prueba'}).waitFor();
   assert.equal(await challengePage.locator('#contact-form [name=message]').inputValue(), 'Mensaje de prueba para el formulario.');
+  assert.equal(await challengePage.locator('#contact-form button[type=submit]').isEnabled(), true);
   assert.equal(await challengePage.evaluate(() => window.widgetResets), 1);
   await challengePage.evaluate(() => window.challengeOptions.callback('second-token'));
   await challengePage.locator('#contact-form button[type=submit]').click();
@@ -376,6 +385,23 @@ try {
   await challengePage.waitForURL(`${base}/contacto`);
   await challengePage.waitForFunction(() => window.widgetRenders === 2);
   await challengePage.close();
+  const enquiryPage = await browser.newPage();
+  await enquiryPage.goto(`${base}/contacto?inmueble=piso-de-alamo`);
+  assert.equal(await enquiryPage.locator('[name=enquiryType]').inputValue(), 'real-estate');
+  assert.equal(await enquiryPage.locator('#property-context').isVisible(), true);
+  await enquiryPage.locator('[name=enquiryType]').selectOption('project');
+  assert.equal(await enquiryPage.locator('#property-context').isHidden(), true);
+  await enquiryPage.locator('[name=name]').fill('Prueba');
+  await enquiryPage.locator('[name=email]').fill('test@example.com');
+  await enquiryPage.locator('[name=message]').fill('Quiero hablar sobre un proyecto.');
+  await enquiryPage.locator('[name=consent]').check();
+  const sentContact = enquiryPage.waitForRequest(request => request.url().endsWith('/api/contact') && request.method() === 'POST');
+  await enquiryPage.locator('#contact-form button[type=submit]').click();
+  const contactBody = (await sentContact).postDataJSON();
+  assert.equal(contactBody.enquiryType, 'project');
+  assert.equal(contactBody.propertySlug, '');
+  await enquiryPage.locator('#contact-status').filter({hasText:'Formulario de prueba'}).waitFor();
+  await enquiryPage.close();
   console.log('Browser smoke passed: contact verification, admin tabs and gallery navigation.');
 } finally {
   await browser.close();

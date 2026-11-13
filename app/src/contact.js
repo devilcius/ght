@@ -7,11 +7,13 @@ export function validateContact(input) {
   const name = typeof input.name === 'string' ? input.name.trim() : '';
   const email = typeof input.email === 'string' ? input.email.trim() : '';
   const message = typeof input.message === 'string' ? input.message.trim() : '';
+  const enquiryType = input.enquiryType;
+  if (!['project','real-estate'].includes(enquiryType)) throw new Error('Selecciona el tipo de consulta.');
   if (name.length < 2 || name.length > 120 || /[\r\n]/.test(name)) throw new Error('Introduce tu nombre (entre 2 y 120 caracteres).');
   if (email.length > 254 || !emailPattern.test(email)) throw new Error('Introduce una dirección de correo válida.');
   if (message.length < 10 || message.length > 5000) throw new Error('Escribe un mensaje de entre 10 y 5000 caracteres.');
   if (input.consent !== true) throw new Error('Acepta el uso de tus datos para responder a tu consulta.');
-  return {name,email,message};
+  return {name,email,message,enquiryType};
 }
 
 export async function handleContact(request, env, send = fetch) {
@@ -40,6 +42,7 @@ export async function handleContact(request, env, send = fetch) {
   let contact;
   try { contact = validateContact(data); } catch (error) { return response({error:error.message},400); }
   let property = null;
+  if (data.propertySlug && contact.enquiryType !== 'real-estate') return response({error:'El inmueble solo puede asociarse a una consulta inmobiliaria.'},400);
   if (data.propertySlug) {
     if (typeof data.propertySlug !== 'string' || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(data.propertySlug) || data.propertySlug.length > 180) return response({error:'Inmueble no válido.'},400);
     property = await env.DB.prepare('SELECT title,slug FROM properties WHERE slug=? AND published=1').bind(data.propertySlug).first();
@@ -64,7 +67,7 @@ export async function handleContact(request, env, send = fetch) {
   try {
     const result = await send('https://api.resend.com/emails',{
       method:'POST',headers:{'Authorization':`Bearer ${env.RESEND_API_KEY}`,'Content-Type':'application/json'},
-      body:JSON.stringify({from:env.CONTACT_FROM_EMAIL,to:[env.CONTACT_TO_EMAIL],reply_to:contact.email,subject:'Nueva consulta desde la web de GHT',...contactEmail(contact, property)})
+      body:JSON.stringify({from:env.CONTACT_FROM_EMAIL,to:[env.CONTACT_TO_EMAIL],reply_to:contact.email,subject:contact.enquiryType === 'real-estate' ? 'Nueva consulta inmobiliaria · GHT' : 'Nueva consulta de arquitectura · GHT',...contactEmail(contact, property)})
     });
     if (!result.ok) return response({error:'No se ha podido enviar el mensaje. Inténtalo de nuevo o escríbenos por correo.'},502);
     return response({ok:true});

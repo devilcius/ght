@@ -289,7 +289,8 @@ class GalleryIntegrationTests(unittest.TestCase):
         assert b'/inmobiliaria/piso-de-prueba' in call(admin, '/sitemap.xml')[1]
         contact = call(admin, '/contacto?inmueble=piso-de-prueba')[1]
         assert b'Consulta sobre' in contact and b'piso-de-prueba' in contact
-        enquiry={'name':'Prueba','email':'test@example.com','message':'Quiero saber más sobre este inmueble.','consent':True,'propertySlug':'piso-de-prueba'}
+        assert b'<option value="real-estate" selected>' in contact
+        enquiry={'enquiryType':'real-estate','name':'Prueba','email':'test@example.com','message':'Quiero saber más sobre este inmueble.','consent':True,'propertySlug':'piso-de-prueba'}
         assert json.loads(send_json(admin, '/api/contact', 'POST', enquiry)[1])['simulated'] is True
         listing['published']=False
         assert send_json(admin, prop_path, 'PUT', listing)[0] == 200
