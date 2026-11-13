@@ -32,9 +32,23 @@ test('configured delivery sends the message and uses visitor as reply-to', async
   const res=await handleContact(makeRequest('https://ght.example'),env,async (url,opts)=>{sent={url,opts,body:JSON.parse(opts.body)};return new Response('{}',{status:200});});
   assert.equal(res.status,200); assert.equal(sent.url,'https://api.resend.com/emails');
   assert.deepEqual(sent.body.to,['office@example.com']); assert.equal(sent.body.reply_to,payload.email); assert.match(sent.body.text,/Me gustaría hablar/);
+  assert.match(sent.body.html,/Me gustaría hablar/); assert.match(sent.body.html,/GHT/); assert.doesNotMatch(sent.body.html,/Consulta sobre un inmueble/);
 });
 
 test('provider failure reports an error without exposing provider response', async () => {
   const res=await handleContact(makeRequest('https://ght.example'),{RESEND_API_KEY:'test-key',CONTACT_FROM_EMAIL:'a@example.com',CONTACT_TO_EMAIL:'b@example.com'},async()=>new Response('secret provider error',{status:500}));
   assert.equal(res.status,502); assert.doesNotMatch(await res.text(),/secret provider error/);
+});
+
+test('email escapes visitor and property content and preserves message line breaks', async () => {
+  let sent;
+  const data = {...payload, name:'<img src=x>', message:'Primera línea\n<script>alert(1)</script>', propertySlug:'piso-madrid'};
+  const env = {RESEND_API_KEY:'test-key', CONTACT_FROM_EMAIL:'send@example.com', CONTACT_TO_EMAIL:'office@example.com', DB:{prepare:()=>({bind:()=>({first:async()=>({title:'Piso <centro> & patio',slug:'piso-madrid'})})})}};
+  const res = await handleContact(makeRequest('https://ght.example', data), env, async (_url, opts) => {sent = JSON.parse(opts.body); return new Response('{}');});
+  assert.equal(res.status, 200);
+  assert.match(sent.html, /&lt;img src=x&gt;/);
+  assert.match(sent.html, /Primera línea<br>&lt;script&gt;alert\(1\)&lt;\/script&gt;/);
+  assert.match(sent.html, /Piso &lt;centro&gt; &amp; patio/);
+  assert.doesNotMatch(sent.html, /<script>|<img src=x>/);
+  assert.match(sent.text, /Piso <centro> & patio/);
 });

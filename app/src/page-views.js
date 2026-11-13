@@ -69,7 +69,7 @@ export function renderContact({content, enquiry, origin, indexable}) {
       </div>
       <div class="contact-honeypot" aria-hidden="true"><label for="contact-website">Sitio web</label><input id="contact-website" name="website" type="text" tabindex="-1" autocomplete="off">
       </div><label class="contact-consent"><input type="checkbox" name="consent" required><span>Acepto que GHT utilice mis datos para responder a mi consulta.</span></label>
-      <p id="contact-status" role="status" aria-live="polite" tabindex="-1"></p><button type="submit">Enviar mensaje <span aria-hidden="true">↗</span></button><noscript>
+      <button type="submit">Enviar mensaje <span aria-hidden="true">↗</span></button><p id="contact-status" role="status" aria-live="polite" tabindex="-1"></p><noscript>
       <p>Para enviar este formulario necesitas activar JavaScript. También puedes escribirnos al correo indicado arriba.</p></noscript>
       </form>
       </section>

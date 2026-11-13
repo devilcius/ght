@@ -933,7 +933,11 @@ footer {
   line-height:1.5;
   font-size:13px;
   color:#53463b;
+  margin:14px 0 0;
 }
+#contact-status:not(:empty) { padding:12px 14px; background:#eeeee8; border-left:3px solid #9a755f; }
+#contact-status[data-state="success"] { background:#e6eee3; border-color:#657d61; color:#344c35; }
+#contact-status[data-state="error"] { background:#f6eae6; border-color:#a26453; color:#713d30; }
 @media(max-width:700px) {
   .contact-form-section {
     grid-template-columns:1fr;

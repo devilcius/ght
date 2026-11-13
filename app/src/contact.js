@@ -1,3 +1,5 @@
+import {contactEmail} from './contact-email.js';
+
 const emailPattern = /^[A-Za-z0-9.!#$%&'*+/=_`{|}~-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+$/;
 
 export function validateContact(input) {
@@ -27,12 +29,11 @@ export async function handleContact(request, env, send = fetch) {
   if (typeof data?.website === 'string' && data.website.trim()) return response({ok:true});
   let contact;
   try { contact = validateContact(data); } catch (error) { return response({error:error.message},400); }
-  let propertyContext = '';
+  let property = null;
   if (data.propertySlug) {
     if (typeof data.propertySlug !== 'string' || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(data.propertySlug) || data.propertySlug.length > 180) return response({error:'Inmueble no válido.'},400);
-    const property = await env.DB.prepare('SELECT title,slug FROM properties WHERE slug=? AND published=1').bind(data.propertySlug).first();
+    property = await env.DB.prepare('SELECT title,slug FROM properties WHERE slug=? AND published=1').bind(data.propertySlug).first();
     if (!property) return response({error:'Este inmueble ya no está disponible. Contacta con nosotros para más información.'},400);
-    propertyContext = `Inmueble: ${property.title} (${property.slug})\n\n`;
   }
   const url = new URL(request.url);
   if (env.LOCAL_DEVELOPMENT === 'true' && ['localhost','127.0.0.1','[::1]'].includes(url.hostname)) return response({ok:true,simulated:true});
@@ -40,7 +41,7 @@ export async function handleContact(request, env, send = fetch) {
   try {
     const result = await send('https://api.resend.com/emails',{
       method:'POST',headers:{'Authorization':`Bearer ${env.RESEND_API_KEY}`,'Content-Type':'application/json'},
-      body:JSON.stringify({from:env.CONTACT_FROM_EMAIL,to:[env.CONTACT_TO_EMAIL],reply_to:contact.email,subject:'Nueva consulta desde la web de GHT',text:`${propertyContext}Nombre: ${contact.name}\nCorreo: ${contact.email}\n\nMensaje:\n${contact.message}`})
+      body:JSON.stringify({from:env.CONTACT_FROM_EMAIL,to:[env.CONTACT_TO_EMAIL],reply_to:contact.email,subject:'Nueva consulta desde la web de GHT',...contactEmail(contact, property)})
     });
     if (!result.ok) return response({error:'No se ha podido enviar el mensaje. Inténtalo de nuevo o escríbenos por correo.'},502);
     return response({ok:true});
