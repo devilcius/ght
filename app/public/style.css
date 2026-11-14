@@ -1098,3 +1098,11 @@ footer {
   text-decoration:underline;
 }
 .contact-form .contact-verification-retry[hidden] { display:none; }
+.user-create { display:flex; align-items:end; gap:14px; max-width:700px; margin:26px 0 35px; }
+.user-create label { flex:1; margin:0; }
+.user-create button { min-height:44px; }
+.user-row { display:flex; justify-content:space-between; align-items:center; gap:16px; padding:18px 0; border-top:1px solid #ddd; }
+.user-row strong { overflow-wrap:anywhere; }
+.user-row small { display:block; margin-top:5px; color:#62655d; }
+.user-actions { display:flex; gap:8px; flex-wrap:wrap; }
+@media(max-width:600px) { .user-create,.user-row { flex-direction:column; align-items:stretch; } }

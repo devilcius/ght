@@ -94,6 +94,28 @@ class GalleryIntegrationTests(unittest.TestCase):
             self.worker.kill()
             self.worker.wait()
 
+    def test_administrator_management(self):
+        admin, public = self.admin, self.public
+        path = '/api/admin/users'
+        assert call(public, '/admin/usuarios')[0] == 401
+        assert call(admin, '/admin/usuarios')[0] == 200
+        assert call(public, path)[0] == 401
+        assert call(admin, path, 'POST', b'{}', 'application/json', origin='http://evil.test')[0] == 403
+        assert send_json(admin, path, 'POST', {'email':'invalid'})[0] == 400
+        status, data, _ = send_json(admin, path, 'POST', {'email':' Editor@Example.com '})
+        assert status == 201, data
+        user = json.loads(data); assert user['email'] == 'editor@example.com'
+        uid = user['id']; item = path + '/' + uid
+        assert send_json(admin, path, 'POST', {'email':'EDITOR@example.com'})[0] == 409
+        assert send_json(admin, item, 'PATCH', {'active':False})[0] == 200
+        listing = json.loads(call(admin, path)[1])['users']
+        assert next(x for x in listing if x['id'] == uid)['active'] is False
+        assert send_json(admin, item, 'PATCH', {'active':True})[0] == 200
+        assert send_json(admin, item, 'PATCH', {'active':'false'})[0] == 400
+        assert call(admin, item, 'DELETE')[0] == 200
+        assert call(admin, item, 'DELETE')[0] == 404
+        assert all(x['id'] != uid for x in json.loads(call(admin, path)[1])['users'])
+
     def test_studio_images_are_editable_and_public(self):
         admin, public = self.admin, self.public
         path = '/api/admin/content/images/team_1'

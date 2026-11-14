@@ -1,5 +1,6 @@
 import { siteImageApi } from "./site-images.js";
-import { isAdmin } from "./auth.js";
+import { getAdmin } from "./auth.js";
+import { usersApi } from "./admin-users.js";
 import { uploadVariant } from "./image-variants.js";
 import { propertyApi } from "./property.js";
 import { contentKeys, validateSiteContent } from "./site-content.js";
@@ -7,8 +8,10 @@ import { siteContent } from "./content-repository.js";
 import { projectApi } from "./project-api.js";
 import { json } from "./http.js";
 async function adminApi(request, env, path) {
-  if (!await isAdmin(request, env)) return json({ error: "No autorizado" }, 401);
+  const actor = await getAdmin(request, env);
+  if (!actor) return json({ error: "No autorizado" }, 401);
   if (!["GET", "HEAD"].includes(request.method) && request.headers.get("Origin") !== new URL(request.url).origin) return json({ error: "Origen no permitido" }, 403);
+  if (path === "/api/admin/users" || path.startsWith("/api/admin/users/")) return usersApi(request, env, path, actor);
   const pending = await env.DB.prepare("SELECT object_key FROM pending_media_deletions LIMIT 25").all();
   for (const item of pending.results) {
     try {

@@ -57,3 +57,15 @@ test('local bypass is restricted to loopback hostnames', async () => {
   assert.equal(await isAdmin(new Request('http://localhost:8787/admin'),{LOCAL_DEVELOPMENT:'true'}),true);
   assert.equal(await isAdmin(new Request('https://example.com/admin'),{LOCAL_DEVELOPMENT:'true'}),false);
 });
+
+test('signed Access users must be active in D1 and revocation takes effect immediately', async t => {
+  t.mock.method(globalThis,'fetch',async () => Response.json({keys:[publicKey]}));
+  let active = true;
+  const managedEnv = {...env, DB:{prepare(sql) { assert.match(sql,/active=1/); return {bind(email) { assert.equal(email,'editor@example.com'); return {first:async()=>active ? {id:'user-1'} : null}; }}; }}};
+  const editor = request(await token({email:'EDITOR@example.com'}));
+  assert.equal(await isAdmin(editor, managedEnv),true);
+  active = false;
+  assert.equal(await isAdmin(editor, managedEnv),false);
+  assert.equal(await isAdmin(request(await token()), {...env,DB:{prepare(){throw Error('unavailable');}}}),true);
+  assert.equal(await isAdmin(editor, {...env,DB:{prepare(){throw Error('unavailable');}}}),false);
+});

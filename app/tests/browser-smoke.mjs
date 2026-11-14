@@ -97,6 +97,17 @@ try {
   assert.equal(await page.evaluate(() => window.navigationMarker),undefined);
   await page.unroute(studyRoute);
 
+  await page.goto(`${base}/admin/usuarios`);
+  await page.locator('#new-user [name=email]').fill('editor@example.com');
+  await page.locator('#new-user button').click();
+  await page.locator('#notice').filter({hasText:'Usuario añadido'}).waitFor();
+  await page.locator('[data-user-active]').click();
+  await page.locator('#notice').filter({hasText:'Usuario desactivado'}).waitFor();
+  await page.locator('[data-user-active]').click();
+  await page.locator('#notice').filter({hasText:'Usuario activado'}).waitFor();
+  page.once('dialog', dialog => dialog.accept());
+  await page.locator('[data-user-delete]').click();
+  await page.locator('#notice').filter({hasText:'Usuario eliminado'}).waitFor();
   await page.goto(`${base}/admin/inmobiliaria`);
   await page.locator('#new-property').waitFor();
   await page.reload();

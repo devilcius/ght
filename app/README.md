@@ -16,7 +16,7 @@ npm run dev
 
 Open the URL printed by Wrangler; `/admin` opens the local editor. D1 and R2 data persist in `app/.wrangler/`. To reset **local data only**, stop the server, remove that directory, and repeat migration and seeding. Local authentication bypass is enabled only by the `dev` script and only for localhost requests. Never set `LOCAL_DEVELOPMENT` in a deployed environment.
 
-The editor sections have direct URLs: `/admin/proyectos`, `/admin/inmobiliaria` and `/admin/estudio`. The original `/admin` address opens projects.
+The editor sections have direct URLs: `/admin/proyectos`, `/admin/inmobiliaria`, `/admin/estudio` and `/admin/usuarios`. The original `/admin` address opens projects. The Usuarios section adds, disables, re-enables, or removes administrators. All active administrators can manage users; users cannot disable or remove themselves. The configured `ADMIN_EMAIL` remains the protected recovery owner and cannot be removed in the editor. Cloudflare Access must also allow each administrator to sign in; the application does not change Access policies or send invitations.
 
 ### Copy production data locally
 
@@ -71,7 +71,7 @@ For an isolated gallery integration test, run `python3 app/tests/gallery_integra
 
 ## Production prerequisites
 
-Before deploying, replace the placeholder D1 ID and configure separate D1/R2 resources. Protect `/admin`, its `/admin/*` section URLs, and `/api/admin/*` with the same Cloudflare Access application; configure `ACCESS_TEAM_DOMAIN`, `ACCESS_AUDIENCE`, and `ADMIN_EMAIL`. The Worker verifies the Access JWT and fails closed without this configuration. Complete the migration, legal content, image optimization, testing and backup/restore work before publishing.
+Before deploying, replace the placeholder D1 ID and configure separate D1/R2 resources. Protect `/admin`, its `/admin/*` section URLs, and `/api/admin/*` with the same Cloudflare Access application; configure `ACCESS_TEAM_DOMAIN`, `ACCESS_AUDIENCE`, and `ADMIN_EMAIL`. The Worker verifies the Access JWT, then checks active administrators in D1 (with `ADMIN_EMAIL` as the protected recovery owner), and fails closed without this configuration. Apply migration `0010_admin_users.sql` before deploying the user management feature. Ensure the Access policy allows the intended administrators and protect all admin and API routes; adding a user in the editor does not alter the Access policy. Complete the migration, legal content, image optimization, testing and backup/restore work before publishing.
 
 Search metadata and `sitemap.xml` use the trusted `PUBLIC_SITE_URL` origin when configured; otherwise they use `https://ghtarquitectura.com` for deployed hosts and the local request origin on localhost. Set `PUBLIC_SITE_URL` to the intended HTTPS origin when deploying to a different domain. Requests on another deployed hostname receive a noindex directive and a disallow-all `robots.txt`, so preview URLs do not advertise themselves for indexing. The sitemap contains public pages and published projects only; project metadata uses its description or, if empty, its title and project details. The selected cover image is used for social sharing where available.
 

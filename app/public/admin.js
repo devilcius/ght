@@ -2,11 +2,13 @@ import {root} from './admin/common.js';
 import {list} from './admin/projects.js';
 import {listProperties} from './admin/properties.js';
 import {editContent} from './admin/content.js';
+import {listUsers} from './admin/users.js';
 
 const sections = {
   '/admin/proyectos': {link: document.querySelector('#tab-projects'), load: list},
   '/admin/inmobiliaria': {link: document.querySelector('#tab-properties'), load: listProperties},
-  '/admin/estudio': {link: document.querySelector('#tab-content'), load: editContent}
+  '/admin/estudio': {link: document.querySelector('#tab-content'), load: editContent},
+  '/admin/usuarios': {link: document.querySelector('#tab-users'), load: listUsers}
 };
 let navigationVersion = 0;
 
